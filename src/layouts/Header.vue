@@ -51,7 +51,7 @@
                   </router-link>
                 </li>
                 <li class="menu-item">
-                  <router-link to="/settings" class="menu-link">
+                  <router-link to="/account-settings" class="menu-link">
                     <i class="fa fa-cog"></i> 账户设置
                   </router-link>
                 </li>
