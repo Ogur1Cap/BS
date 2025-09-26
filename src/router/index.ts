@@ -6,7 +6,6 @@ import NotFound from '../views/NotFound.vue'
 import Profile from '../views/Profile.vue'
 import Orders from '../views/Orders.vue'
 import Notifications from '../views/Notifications.vue'
-import AccountSettings from '../views/AccountSettings.vue'
 
 // 路由规则
 const routes: Array<RouteRecordRaw> = [
@@ -65,15 +64,6 @@ const routes: Array<RouteRecordRaw> = [
     component: Notifications,
     meta: {
       title: '通知 - 三角洲行动俱乐部',
-      requiresAuth: true // 需要登录才能访问
-    }
-  },
-    {
-    path: '/account-settings',
-    name: 'AccountSettings',
-    component: AccountSettings,
-    meta: {
-      title: '账号设置 - 三角洲行动俱乐部',
       requiresAuth: true // 需要登录才能访问
     }
   },
