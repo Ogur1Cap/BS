@@ -81,7 +81,7 @@ const todayDate = computed(() => {
   right: 0;
   width: 100%;
   height: 100%;
-  background-image: url('../../../fengmian.png');
+  background-image: url('../../image/fengmian.png');
   background-size: cover;
   background-position: center;
   opacity: 0.1;

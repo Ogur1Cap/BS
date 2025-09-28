@@ -7,6 +7,7 @@ import Profile from '../views/Profile.vue'
 import Orders from '../views/Orders.vue'
 import Notifications from '../views/Notifications.vue'
 import AccountSettings from '../views/AccountSettings.vue'
+import EscortDelta from '../views/EscortDelta.vue'
 
 // 路由规则
 const routes: Array<RouteRecordRaw> = [
@@ -38,6 +39,15 @@ const routes: Array<RouteRecordRaw> = [
     component: Dashboard,
     meta: {
       title: '首页 - 三角洲行动俱乐部',
+      requiresAuth: true // 需要登录才能访问
+    }
+  },
+  {
+    path: '/escort',
+    name: 'EscortDelta',
+    component: EscortDelta,
+    meta: {
+      title: ' escort delta - 三角洲行动俱乐部',
       requiresAuth: true // 需要登录才能访问
     }
   },
