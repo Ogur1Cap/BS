@@ -20,11 +20,11 @@
             <li class="nav-item" :class="{ 'active': isCurrentRoute('/orders') }">
               <router-link to="/orders" class="nav-link">我的订单</router-link>
             </li>
-            <li class="nav-item" :class="{ 'active': isCurrentRoute('/ranking') }">
-              <router-link to="/ranking" class="nav-link">玩家排行</router-link>
+            <li class="nav-item" :class="{ 'active': isCurrentRoute('/play-hall') }">
+              <router-link to="/play-hall" class="nav-link">打手大厅</router-link>
             </li>
-            <li class="nav-item" :class="{ 'active': isCurrentRoute('/customer-service') }">
-              <router-link to="/customer-service" class="nav-link">客服中心</router-link>
+            <li class="nav-item" :class="{ 'active': isCurrentRoute('/support-center') }">
+              <router-link to="/support-center" class="nav-link">客服中心</router-link>
             </li>
           </ul>
         </nav>
@@ -61,7 +61,7 @@
                   </router-link>
                 </li>
                 <li class="menu-item">
-                  <router-link to="/help" class="menu-link">
+                  <router-link to="/help-center" class="menu-link">
                     <i class="fa fa-question-circle"></i> 帮助中心
                   </router-link>
                 </li>
@@ -95,8 +95,8 @@
         <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/orders') }">
           <router-link to="/orders" class="mobile-nav-link" @click="closeMobileMenu">我的订单</router-link>
         </li>
-        <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/ranking') }">
-          <router-link to="/ranking" class="mobile-nav-link" @click="closeMobileMenu">玩家排行</router-link>
+        <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/play-hall') }">
+          <router-link to="/play-hall" class="mobile-nav-link" @click="closeMobileMenu">打手大厅</router-link>
         </li>
         <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/customer-service') }">
           <router-link to="/customer-service" class="mobile-nav-link" @click="closeMobileMenu">客服中心</router-link>

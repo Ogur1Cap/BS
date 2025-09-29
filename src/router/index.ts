@@ -8,6 +8,9 @@ import Orders from '../views/Orders.vue'
 import Notifications from '../views/Notifications.vue'
 import AccountSettings from '../views/AccountSettings.vue'
 import EscortDelta from '../views/EscortDelta.vue'
+import PlayHall from '../views/PlayHall.vue'
+import SupportCenter from '../views/SupportCenter.vue'
+import HelpCenter from '../views/HelpCenter.vue'
 
 // 路由规则
 const routes: Array<RouteRecordRaw> = [
@@ -52,6 +55,15 @@ const routes: Array<RouteRecordRaw> = [
     }
   },
   {
+    path: '/play-hall',
+    name: 'PlayHall',
+    component: PlayHall,
+    meta: {
+      title: '打手大厅 - 三角洲行动俱乐部',
+      requiresAuth: true // 需要登录才能访问
+    }
+  },
+  {
     path: '/profile',
     name: 'Profile',
     component: Profile,
@@ -79,11 +91,29 @@ const routes: Array<RouteRecordRaw> = [
     }
   },
   {
+    path: '/support-center',
+    name: 'SupportCenter',
+    component: SupportCenter,
+    meta: {
+      title: '客服中心 - 三角洲行动俱乐部',
+      requiresAuth: true // 需要登录才能访问
+    }
+  },
+  {
     path: '/notifications',
     name: 'Notifications',
     component: Notifications,
     meta: {
       title: '通知 - 三角洲行动俱乐部',
+      requiresAuth: true // 需要登录才能访问
+    }
+  },
+  {
+    path: '/help-center',
+    name: 'HelpCenter',
+    component: HelpCenter,
+    meta: {
+      title: '帮助中心 - 三角洲行动俱乐部',
       requiresAuth: true // 需要登录才能访问
     }
   },
