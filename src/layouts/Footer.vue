@@ -18,8 +18,8 @@
             <ul class="link-list">
               <li><router-link to="/services">服务介绍</router-link></li>
               <li><router-link to="/prices">价格表</router-link></li>
-              <li><router-link to="/faq">常见问题</router-link></li>
-              <li><router-link to="/customer-service">联系客服</router-link></li>
+              <li><router-link to="/help-center">常见问题</router-link></li>
+              <li><router-link to="/support-center">联系客服</router-link></li>
             </ul>
           </div>
           

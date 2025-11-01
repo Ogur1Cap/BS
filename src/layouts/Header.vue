@@ -23,6 +23,9 @@
             <li class="nav-item" :class="{ 'active': isCurrentRoute('/play-hall') }">
               <router-link to="/play-hall" class="nav-link">打手大厅</router-link>
             </li>
+            <li class="nav-item" :class="{ 'active': isCurrentRoute('/game-map') }">
+              <router-link to="/game-map" class="nav-link">游戏地图</router-link>
+            </li>
             <li class="nav-item" :class="{ 'active': isCurrentRoute('/support-center') }">
               <router-link to="/support-center" class="nav-link">客服中心</router-link>
             </li>

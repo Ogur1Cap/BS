@@ -42,13 +42,13 @@
               title="选择打手"
               description="浏览精英玩家列表"
               icon="fa fa-users"
-              link="/players"
+              link="/play-hall"
             />
             <ServiceCard 
               title="客服中心"
               description="随时为您解决问题"
               icon="fa fa-comments"
-              link="/customer-service"
+              link="/support-center"
             />
           </div>
         </section>

@@ -11,6 +11,7 @@ import EscortDelta from '../views/EscortDelta.vue'
 import PlayHall from '../views/PlayHall.vue'
 import SupportCenter from '../views/SupportCenter.vue'
 import HelpCenter from '../views/HelpCenter.vue'
+import GameMap from '../views/GameMap.vue'
 
 // 路由规则
 const routes: Array<RouteRecordRaw> = [
@@ -114,6 +115,15 @@ const routes: Array<RouteRecordRaw> = [
     component: HelpCenter,
     meta: {
       title: '帮助中心 - 三角洲行动俱乐部',
+      requiresAuth: true // 需要登录才能访问
+    }
+  },
+  {
+    path: '/game-map',
+    name: 'GameMap',
+    component: GameMap,
+    meta: {
+      title: '游戏地图 - 三角洲行动俱乐部',
       requiresAuth: true // 需要登录才能访问
     }
   },
