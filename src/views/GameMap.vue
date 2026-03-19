@@ -1,234 +1,140 @@
 <template>
-  <div class="bs-map-page">
+  <div class="gm-page">
     <header class="page-header">
       <div class="container">
         <div class="header-content">
           <div class="logo">
             <i class="fa fa-crosshairs"></i>
-            <span>三角洲行动 - 地图库</span>
+            <span>三角洲行动 - 地图交互</span>
           </div>
           <nav class="main-nav">
             <a href="/" class="nav-link">首页</a>
-            <a href="/map" class="nav-link active">地图导航</a>
+            <a href="/map" class="nav-link active">地图</a>
             <a href="/strategy" class="nav-link">攻略合集</a>
-            <a href="/community" class="nav-link">玩家社区</a>
           </nav>
           <div class="user-info">
-            <img :src="userAvatar" alt="用户头像" class="user-avatar" @click="toggleUserMenu">
-            <div class="user-menu" v-if="showUserMenu">
+            <img :src="userAvatar" class="user-avatar" alt="用户头像" @click="toggleUserMenu" />
+            <div v-if="showUserMenu" class="user-menu">
               <a href="/profile">个人中心</a>
               <a href="/collection">我的收藏</a>
-              <a href="#" @click="handleLogout">退出登录</a>
+              <a href="#" @click.prevent="handleLogout">退出登录</a>
             </div>
           </div>
         </div>
       </div>
     </header>
 
-    <!-- 主视觉Banner -->
-    <section class="map-banner">
-      <div class="banner-overlay">
-        <div class="container">
-          <h1>战场地图全解析</h1>
-          <p>精准标记资源点、战术点位，助力战术规划</p>
-          <div class="banner-actions">
-            <button class="btn-primary" @click="scrollToMapList">浏览地图</button>
-            <button class="btn-secondary" @click="goToStrategy">查看攻略</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 地图筛选与列表区 -->
-    <section class="map-list-section" ref="mapListRef">
-      <div class="container">
-        <!-- 筛选栏 -->
-        <div class="map-filter">
-          <h2>选择地图类型</h2>
-          <div class="filter-tabs">
-            <button class="filter-tab" :class="{ active: activeMapType === 'all' }" @click="activeMapType = 'all'">全部地图</button>
-            <button class="filter-tab" :class="{ active: activeMapType === 'city' }" @click="activeMapType = 'city'">城市战区</button>
-            <button class="filter-tab" :class="{ active: activeMapType === 'wild' }" @click="activeMapType = 'wild'">野外战场</button>
-            <button class="filter-tab" :class="{ active: activeMapType === 'special' }" @click="activeMapType = 'special'">特殊模式</button>
-          </div>
-        </div>
-
-        <!-- 地图卡片网格 -->
-        <div class="map-card-grid">
-          <div class="map-card" v-for="map in filteredMaps" :key="map.id" @click="openMapDetail(map.id)">
-            <div class="card-thumb">
-              <img :src="map.coverUrl" :alt="map.name">
-              <div class="card-tag" v-if="map.isHot">热门</div>
-              <div class="card-tag new" v-if="map.isNew">新地图</div>
+    <main class="gm-main">
+      <section class="gm-workspace">
+        <div class="gm-map-col">
+          <div class="gm-toolbar">
+            <div class="gm-modes">
+              <button class="gm-mode-btn" :class="{ active: mode === 'inspect' }" @click="mode = 'inspect'">
+                <i class="fa fa-eye"></i> 查看/选点
+              </button>
+              <button class="gm-mode-btn" :class="{ active: mode === 'mark' }" @click="mode = 'mark'">
+                <i class="fa fa-flag"></i> 添加标记
+              </button>
             </div>
-            <div class="card-body">
-              <h3 class="card-title">{{ map.name }}</h3>
-              <div class="card-meta">
-                <span><i class="fa fa-map-marker"></i> {{ map.pointCount }}个战术点</span>
-                <span><i class="fa fa-star"></i> {{ map.collectCount }}人收藏</span>
+
+            <div class="gm-toolbar-right">
+              <div class="gm-scale-pill">
+                <span>缩放</span>
+                <b>{{ Math.round(view.scale * 100) }}%</b>
               </div>
-              <p class="card-desc">{{ map.desc }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 地图详情弹窗（核心交互） -->
-    <div class="map-detail-modal" v-if="showMapModal">
-      <div class="modal-mask" @click="closeMapModal"></div>
-      <div class="modal-box">
-        <!-- 弹窗头部 -->
-        <div class="modal-header">
-          <h2>{{ currentMap.name }}</h2>
-          <div class="modal-tools">
-            <button class="tool-btn" @click="toggleFullScreen" :title="isFullScreen ? '退出全屏' : '全屏查看'">
-              <i class="fa" :class="isFullScreen ? 'fa-compress' : 'fa-expand'"></i>
-            </button>
-            <button class="tool-btn" @click="toggleCollectMap" :title="isCollected ? '取消收藏' : '收藏地图'">
-              <i class="fa" :class="isCollected ? 'fa-star' : 'fa-star-o'"></i>
-            </button>
-            <button class="tool-btn close-btn" @click="closeMapModal" title="关闭">
-              <i class="fa fa-times"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- 弹窗主体 -->
-        <div class="modal-body">
-          <!-- 地图控制栏 -->
-          <div class="map-control">
-            <div class="control-group left">
-              <button class="control-btn" :class="{ active: mapMode === 'view' }" @click="mapMode = 'view'">
-                <i class="fa fa-eye"></i> 查看模式
-              </button>
-              <button class="control-btn" :class="{ active: mapMode === 'mark' }" @click="mapMode = 'mark'">
-                <i class="fa fa-flag"></i> 标记模式
-              </button>
-              <button class="control-btn" @click="clearUserMarks" :disabled="userMarks.length === 0">
-                <i class="fa fa-trash"></i> 清除标记
-              </button>
-            </div>
-            <div class="control-group right">
-              <span class="zoom-label">缩放：{{ Math.round(zoomLevel * 100) }}%</span>
-              <button class="zoom-btn" @click="adjustZoom(-0.1)" :disabled="zoomLevel <= 0.5">
-                <i class="fa fa-search-minus"></i>
-              </button>
-              <button class="zoom-btn" @click="adjustZoom(0.1)" :disabled="zoomLevel >= 2">
+              <button class="gm-icon-btn" :disabled="view.scale <= minScale" @click="adjustZoom(1)">
                 <i class="fa fa-search-plus"></i>
               </button>
+              <button class="gm-icon-btn" :disabled="view.scale >= maxScale" @click="adjustZoom(-1)">
+                <i class="fa fa-search-minus"></i>
+              </button>
+              <button class="gm-icon-btn" @click="resetView">
+                <i class="fa fa-crosshairs"></i>
+              </button>
+              <label class="gm-switch">
+                <input type="checkbox" v-model="showGrid" />
+                <span>网格</span>
+              </label>
             </div>
           </div>
 
-          <!-- 地图展示区 -->
-          <div class="map-display">
-            <div 
-              class="map-wrapper"
-              @click="handleMapClick"
-              :style="{ transform: `scale(${zoomLevel})`, transformOrigin: 'center', transition: 'transform 0.3s ease' }"
-            >
-              <img :src="currentMap.mapUrl" :alt="currentMap.name" class="map-img">
+          <div class="gm-canvas-wrap" ref="canvasAreaRef">
+            <canvas
+              ref="canvasRef"
+              class="gm-canvas"
+              @wheel.prevent="handleWheel"
+              @pointerdown="onPointerDown"
+              @pointermove="onPointerMove"
+              @pointerup="onPointerUp"
+              @pointercancel="onPointerUp"
+              @mouseleave="onPointerLeave"
+            />
 
-              <!-- 系统战术点标记 -->
-              <div 
-                class="system-marker"
-                v-for="(point, idx) in currentMap.tacticalPoints"
-                :key="idx"
-                :style="{ left: `${point.x}%`, top: `${point.y}%` }"
-                @click.stop="showPointDetail(point, idx)"
-              >
-                <div class="marker-dot" :style="{ backgroundColor: point.color }"></div>
-                <div class="marker-tooltip" v-if="point.showTooltip">
-                  <h4>{{ point.name }}</h4>
-                  <p>{{ point.desc }}</p>
-                  <div class="tooltip-tags">
-                    <span v-for="tag in point.tags" :key="tag">{{ tag }}</span>
-                  </div>
-                </div>
+            <div class="gm-overlay">
+              <div v-if="hoverWorld" class="gm-readout">
+                世界：({{ fmt(hoverWorld.x) }}, {{ fmt(hoverWorld.y) }})
               </div>
-
-              <!-- 用户自定义标记 -->
-              <div 
-                class="user-marker"
-                v-for="(mark, idx) in userMarks"
-                :key="idx"
-                :style="{ left: `${mark.x}%`, top: `${mark.y}%` }"
-                @click.stop="showUserMarkDetail(mark, idx)"
-              >
-                <i class="fa fa-map-pin"></i>
-                <div class="marker-tooltip" v-if="mark.showTooltip">
-                  <h4>{{ mark.title }}</h4>
-                  <p>{{ mark.desc || '无描述' }}</p>
-                  <button class="delete-mark-btn" @click.stop="deleteUserMark(idx)">
-                    <i class="fa fa-trash"></i> 删除
-                  </button>
-                </div>
+              <div v-if="selectedWorld" class="gm-selected">
+                已选：({{ fmt(selectedWorld.x) }}, {{ fmt(selectedWorld.y) }})
               </div>
             </div>
           </div>
 
-          <!-- 图例说明 -->
-          <div class="map-legend">
-            <h3>战术点图例</h3>
-            <div class="legend-list">
-              <div class="legend-item" v-for="type in tacticalTypes" :key="type.id">
-                <div class="legend-color" :style="{ backgroundColor: type.color }"></div>
-                <span>{{ type.name }}</span>
-              </div>
+          <div class="gm-hint">左键拖拽平移；滚轮缩放；“添加标记”后点击地图落点。</div>
+        </div>
+
+        <aside class="gm-side">
+          <div class="gm-card">
+            <div class="gm-card-title">点位信息</div>
+            <div class="gm-row">
+              <span>缩放</span>
+              <b>{{ Math.round(view.scale * 100) }}%</b>
+            </div>
+            <div class="gm-row" v-if="selectedWorld">
+              <span>坐标</span>
+              <b>{{ fmt(selectedWorld.x) }}, {{ fmt(selectedWorld.y) }}</b>
+            </div>
+            <div class="gm-row" v-else>
+              <span>坐标</span>
+              <b>未选择</b>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- 自定义标记输入弹窗 -->
-    <div class="mark-input-modal" v-if="showMarkInputModal">
-      <div class="modal-mask" @click="closeMarkInputModal"></div>
-      <div class="modal-box small">
-        <div class="modal-header">
-          <h2>添加战术标记</h2>
-          <button class="tool-btn close-btn" @click="closeMarkInputModal">
-            <i class="fa fa-times"></i>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>标记名称 <span class="required">*</span></label>
-            <input 
-              type="text" 
-              v-model="markForm.title" 
-              class="form-control"
-              placeholder="例如：伏击点、物资箱、狙击位"
-            >
-          </div>
-          <div class="form-group">
-            <label>标记描述</label>
-            <textarea 
-              v-model="markForm.desc" 
-              class="form-control"
-              rows="3"
-              placeholder="输入标记详情（可选）"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label>标记类型</label>
-            <select v-model="markForm.type" class="form-control">
-              <option value="ambush">伏击点</option>
-              <option value="resource">资源点</option>
-              <option value="snipe">狙击位</option>
-              <option value="safe">安全区</option>
-              <option value="danger">危险区</option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="closeMarkInputModal">取消</button>
-          <button class="btn-primary" @click="saveUserMark">确定添加</button>
-        </div>
-      </div>
-    </div>
+          <div class="gm-card">
+            <div class="gm-card-title gm-card-title-row">
+              <span>标记列表</span>
+              <button class="gm-link-btn" :disabled="markers.length === 0" @click="clearMarkers">
+                清空
+              </button>
+            </div>
 
-    <!-- 页脚 -->
+            <div v-if="markers.length === 0" class="gm-empty">暂无标记。</div>
+
+            <div v-else class="gm-marker-list">
+              <div v-for="m in markers" :key="m.id" class="gm-marker-item">
+                <button class="gm-marker-pick" :class="{ active: m.id === activeMarkerId }" @click="selectMarker(m.id)">
+                  {{ m.label }}
+                </button>
+                <button class="gm-marker-del" @click="deleteMarker(m.id)">删除</button>
+              </div>
+            </div>
+
+            <div v-if="activeMarker" class="gm-edit">
+              <div class="gm-edit-title">编辑标记</div>
+              <label class="gm-field">
+                <span>名称</span>
+                <input v-model="activeMarker.label" class="gm-input" />
+              </label>
+              <label class="gm-field">
+                <span>备注</span>
+                <textarea v-model="activeMarker.note" class="gm-textarea" rows="3"></textarea>
+              </label>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
+
     <footer class="page-footer">
       <div class="container">
         <div class="footer-content">
@@ -236,15 +142,7 @@
             <i class="fa fa-crosshairs"></i>
             <span>三角洲行动地图库</span>
           </div>
-          <div class="footer-links">
-            <a href="/about">关于我们</a>
-            <a href="/terms">用户协议</a>
-            <a href="/privacy">隐私政策</a>
-            <a href="/feedback">反馈建议</a>
-          </div>
-          <div class="copyright">
-            © 2025 三角洲行动地图库 版权所有 | 基于项目 BS 开发
-          </div>
+          <div class="copyright">© 2025 三角洲行动地图库 版权所有 | 基于项目 BS 开发</div>
         </div>
       </div>
     </footer>
@@ -252,415 +150,415 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
-const router = useRouter();
-
-// ===== 基础状态 =====
-const userAvatar = ref('https://picsum.photos/id/237/100/100'); // 项目用户头像默认值
-const showUserMenu = ref(false);
-const mapListRef = ref<HTMLDivElement | null>(null);
-
-// ===== 地图核心数据（贴合项目：仅保留三角洲行动相关地图） =====
-// 战术点类型定义
-const tacticalTypes = ref([
-  { id: 'high-resource', name: '高级资源区', color: '#e53e3e' },
-  { id: 'mid-resource', name: '中级资源区', color: '#ed8936' },
-  { id: 'ambush', name: '伏击点', color: '#9f7aea' },
-  { id: 'snipe', name: '狙击位', color: '#3182ce' },
-  { id: 'safe', name: '安全区', color: '#48bb78' },
-  { id: 'danger', name: '危险区', color: '#f56565' },
-  { id: 'task', name: '任务目标点', color: '#4299e1' }
-]);
-
-// 地图数据（纯三角洲行动相关）
-const maps = reactive([
-  {
-    id: 'city-01',
-    name: '都市核心区',
-    type: 'city', // 城市战区
-    coverUrl: 'https://picsum.photos/id/1031/600/400',
-    mapUrl: 'https://picsum.photos/id/1031/1200/800',
-    desc: '繁华都市改造的战场，高楼林立，巷战频发',
-    pointCount: 32,
-    collectCount: 25689,
-    isHot: true,
-    isNew: false,
-    tacticalPoints: [
-      { x: 28, y: 35, name: '中央广场', desc: '高级资源集中区，易守难攻', tags: ['高级资源', '热门'], color: '#e53e3e', showTooltip: false },
-      { x: 65, y: 42, name: '金融中心', desc: '高楼密集，适合狙击和伏击', tags: ['狙击位', '伏击点'], color: '#3182ce', showTooltip: false },
-      { x: 42, y: 68, name: '地下停车场', desc: '中级资源区，地形复杂', tags: ['中级资源', '防守'], color: '#ed8936', showTooltip: false },
-      { x: 78, y: 25, name: '电视台', desc: '任务目标点，信号覆盖区', tags: ['任务目标', '战略'], color: '#4299e1', showTooltip: false },
-      { x: 55, y: 82, name: '郊区安全屋', desc: '初期发育点，物资充足', tags: ['安全区', '初期'], color: '#48bb78', showTooltip: false }
-    ]
-  },
-  {
-    id: 'city-02',
-    name: '港口工业区',
-    type: 'city',
-    coverUrl: 'https://picsum.photos/id/1047/600/400',
-    mapUrl: 'https://picsum.photos/id/1047/1200/800',
-    desc: '港口与工业区结合的战场，集装箱与厂房交织',
-    pointCount: 28,
-    collectCount: 18956,
-    isHot: false,
-    isNew: false,
-    tacticalPoints: [
-      { x: 35, y: 40, name: '集装箱码头', desc: '中级资源区，掩体丰富', tags: ['中级资源', '巷战'], color: '#ed8936', showTooltip: false },
-      { x: 62, y: 32, name: '工厂仓库', desc: '高级资源区，封闭空间', tags: ['高级资源', '近战'], color: '#e53e3e', showTooltip: false },
-      { x: 22, y: 75, name: '港口办公室', desc: '狙击点位，视野开阔', tags: ['狙击位', '战略'], color: '#3182ce', showTooltip: false }
-    ]
-  },
-  {
-    id: 'wild-01',
-    name: '荒野训练营',
-    type: 'wild', // 野外战场
-    coverUrl: 'https://picsum.photos/id/1019/600/400',
-    mapUrl: 'https://picsum.photos/id/1019/1200/800',
-    desc: '开阔野外战场，地形起伏，适合远距离作战',
-    pointCount: 24,
-    collectCount: 15623,
-    isHot: false,
-    isNew: false,
-    tacticalPoints: [
-      { x: 48, y: 30, name: '山顶瞭望塔', desc: '绝佳狙击位，360度视野', tags: ['狙击位', '视野'], color: '#3182ce', showTooltip: false },
-      { x: 72, y: 55, name: '废弃村落', desc: '中级资源区，适合小队集结', tags: ['中级资源', '集结'], color: '#ed8936', showTooltip: false },
-      { x: 28, y: 65, name: '山谷伏击点', desc: '天然掩体，适合伏击', tags: ['伏击点', '隐蔽'], color: '#9f7aea', showTooltip: false }
-    ]
-  },
-  {
-    id: 'special-01',
-    name: '夜间突袭',
-    type: 'special', // 特殊模式
-    coverUrl: 'https://picsum.photos/id/1039/600/400',
-    mapUrl: 'https://picsum.photos/id/1039/1200/800',
-    desc: '夜间模式专属地图，能见度低，依赖战术配合',
-    pointCount: 20,
-    collectCount: 12897,
-    isHot: false,
-    isNew: true,
-    tacticalPoints: [
-      { x: 38, y: 45, name: '灯光控制室', desc: '控制全场灯光，战略要点', tags: ['任务目标', '战略'], color: '#4299e1', showTooltip: false },
-      { x: 68, y: 38, name: '废弃加油站', desc: '中级资源区，易守难攻', tags: ['中级资源', '防守'], color: '#ed8936', showTooltip: false },
-      { x: 52, y: 70, name: '黑暗山谷', desc: '伏击绝佳地点，隐蔽性强', tags: ['伏击点', '隐蔽'], color: '#9f7aea', showTooltip: false }
-    ]
-  },
-  {
-    id: 'city-03',
-    name: '老城区',
-    type: 'city',
-    coverUrl: 'https://picsum.photos/id/1048/600/400',
-    mapUrl: 'https://picsum.photos/id/1048/1200/800',
-    desc: '老式建筑群战场，街道狭窄，近战为主',
-    pointCount: 26,
-    collectCount: 16789,
-    isHot: false,
-    isNew: false,
-    tacticalPoints: [
-      { x: 42, y: 32, name: '老城广场', desc: '高级资源区，人流密集', tags: ['高级资源', '热门'], color: '#e53e3e', showTooltip: false },
-      { x: 75, y: 58, name: '居民楼群', desc: '中级资源区，巷战频发', tags: ['中级资源', '巷战'], color: '#ed8936', showTooltip: false },
-      { x: 25, y: 62, name: '屋顶狙击点', desc: '视野开阔，适合远程打击', tags: ['狙击位', '远程'], color: '#3182ce', showTooltip: false }
-    ]
-  }
-]);
-
-// ===== 筛选与地图状态 =====
-const activeMapType = ref('all'); // 筛选类型：all/city/wild/special
-const filteredMaps = computed(() => {
-  if (activeMapType.value === 'all') return maps;
-  return maps.filter(map => map.type === activeMapType.value);
-});
-
-// ===== 地图详情弹窗状态 =====
-const showMapModal = ref(false);
-const currentMap = ref(maps[0]); // 当前选中地图
-const mapMode = ref('view'); // view/mark
-const zoomLevel = ref(1);
-const isFullScreen = ref(false);
-const collectedMapIds = ref<string[]>([]); // 已收藏地图ID
-const isCollected = computed(() => collectedMapIds.value.includes(currentMap.value.id));
-
-// ===== 用户标记状态 =====
-const userMarks = ref<Array<{
-  x: number;
-  y: number;
-  title: string;
-  desc?: string;
-  type: string;
-  showTooltip: boolean;
-}>>([]);
-const showMarkInputModal = ref(false);
-const markForm = ref({
-  title: '',
-  desc: '',
-  type: 'ambush',
-  x: 0,
-  y: 0
-});
-
-// ===== 页面交互方法 =====
-// 滚动到地图列表
-const scrollToMapList = () => {
-  mapListRef.value?.scrollIntoView({ behavior: 'smooth' });
-};
-
-// 前往攻略页面
-const goToStrategy = () => {
-  router.push('/strategy');
-};
-
-// 用户菜单切换
-const toggleUserMenu = () => {
-  showUserMenu.value = !showUserMenu.value;
-};
-
-// 登出处理（贴合项目路由）
+const router = useRouter()
+const userAvatar = ref('https://picsum.photos/id/237/100/100')
+const showUserMenu = ref(false)
+const toggleUserMenu = () => (showUserMenu.value = !showUserMenu.value)
 const handleLogout = () => {
-  localStorage.removeItem('bs_token');
-  localStorage.removeItem('bs_user');
-  router.push('/login');
-};
+  localStorage.removeItem('bs_token')
+  localStorage.removeItem('bs_user')
+  router.push('/login')
+}
 
-// 打开地图详情
-const openMapDetail = (mapId: string) => {
-  const targetMap = maps.find(map => map.id === mapId);
-  if (targetMap) currentMap.value = targetMap;
-  showMapModal.value = true;
-  zoomLevel.value = 1;
-  mapMode.value = 'view';
-  userMarks.value = [];
-};
-
-// 关闭地图详情
-const closeMapModal = () => {
-  showMapModal.value = false;
-  isFullScreen.value = false;
-  // 退出全屏
-  if (document.fullscreenElement) {
-    if (document.exitFullscreen) document.exitFullscreen();
-    else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
-    else if ((document as any).msExitFullscreen) (document as any).msExitFullscreen();
-  }
-};
-
-// 全屏切换
-const toggleFullScreen = () => {
-  const modalBox = document.querySelector('.modal-box') as HTMLElement;
-  if (!modalBox) return;
-
-  if (!isFullScreen.value) {
-    // 进入全屏
-    if (modalBox.requestFullscreen) modalBox.requestFullscreen();
-    else if ((modalBox as any).webkitRequestFullscreen) (modalBox as any).webkitRequestFullscreen();
-    else if ((modalBox as any).msRequestFullscreen) (modalBox as any).msRequestFullscreen();
-  } else {
-    // 退出全屏
-    if (document.exitFullscreen) document.exitFullscreen();
-    else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
-    else if ((document as any).msExitFullscreen) (document as any).msExitFullscreen();
-  }
-};
-
-// 监听全屏状态变化
-const handleFullScreenChange = () => {
-  isFullScreen.value = !!document.fullscreenElement;
-};
-
-// 缩放调整
-const adjustZoom = (delta: number) => {
-  zoomLevel.value = Math.max(0.5, Math.min(2, zoomLevel.value + delta));
-};
-
-// 地图点击（标记模式）
-const handleMapClick = (e: MouseEvent) => {
-  if (mapMode.value !== 'mark') return;
-
-  const mapWrapper = e.currentTarget as HTMLDivElement;
-  const rect = mapWrapper.getBoundingClientRect();
-  const x = ((e.clientX - rect.left) / rect.width) * 100;
-  const y = ((e.clientY - rect.top) / rect.height) * 100;
-
-  // 重置标记表单并打开输入弹窗
-  markForm.value = {
-    title: '',
-    desc: '',
-    type: 'ambush',
-    x,
-    y
-  };
-  showMarkInputModal.value = true;
-};
-
-// 显示系统战术点详情
-const showPointDetail = (point: any, idx: number) => {
-  // 关闭其他点的tooltip
-  currentMap.value.tacticalPoints.forEach((p, i) => {
-    if (i !== idx) p.showTooltip = false;
-  });
-  point.showTooltip = !point.showTooltip;
-};
-
-// 显示用户标记详情
-const showUserMarkDetail = (mark: any, idx: number) => {
-  // 关闭其他标记的tooltip
-  userMarks.value.forEach((m, i) => {
-    if (i !== idx) m.showTooltip = false;
-  });
-  mark.showTooltip = !mark.showTooltip;
-};
-
-// 保存用户标记
-const saveUserMark = () => {
-  if (!markForm.value.title.trim()) {
-    alert('请输入标记名称');
-    return;
-  }
-
-  userMarks.value.push({
-    x: markForm.value.x,
-    y: markForm.value.y,
-    title: markForm.value.title,
-    desc: markForm.value.desc,
-    type: markForm.value.type,
-    showTooltip: true
-  });
-
-  showMarkInputModal.value = false;
-};
-
-// 关闭标记输入弹窗
-const closeMarkInputModal = () => {
-  showMarkInputModal.value = false;
-  markForm.value = { title: '', desc: '', type: 'ambush', x: 0, y: 0 };
-};
-
-// 删除用户标记
-const deleteUserMark = (idx: number) => {
-  userMarks.value.splice(idx, 1);
-};
-
-// 清除所有用户标记
-const clearUserMarks = () => {
-  if (confirm('确定清除所有自定义标记吗？')) {
-    userMarks.value = [];
-  }
-};
-
-// 收藏/取消收藏地图
-const toggleCollectMap = () => {
-  if (isCollected.value) {
-    collectedMapIds.value = collectedMapIds.value.filter(id => id !== currentMap.value.id);
-    alert(`已取消收藏 ${currentMap.value.name}`);
-  } else {
-    collectedMapIds.value.push(currentMap.value.id);
-    alert(`已收藏 ${currentMap.value.name} 到我的收藏`);
-  }
-};
-
-// ===== 生命周期 =====
 onMounted(() => {
-  // 监听全屏变化
-  document.addEventListener('fullscreenchange', handleFullScreenChange);
-  document.addEventListener('webkitfullscreenchange', handleFullScreenChange);
-  document.addEventListener('MSFullscreenChange', handleFullScreenChange);
-
-  // 初始化用户信息（从项目本地存储读取）
-  const userStr = localStorage.getItem('bs_user');
+  const userStr = localStorage.getItem('bs_user')
   if (userStr) {
-    const user = JSON.parse(userStr);
-    userAvatar.value = user.avatar || userAvatar.value;
+    try {
+      const user = JSON.parse(userStr)
+      userAvatar.value = user.avatar || userAvatar.value
+    } catch {
+      // ignore
+    }
   } else {
-    router.push('/login'); // 未登录跳转登录页（贴合项目路由）
+    router.push('/login')
+  }
+})
+
+type Marker = { id: string; x: number; y: number; label: string; note: string }
+
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const canvasAreaRef = ref<HTMLDivElement | null>(null)
+
+const bounds = reactive({ width: 1200, height: 800 })
+const minScale = 0.25
+const maxScale = 5
+const mode = ref<'inspect' | 'mark'>('inspect')
+const showGrid = ref(true)
+
+const view = reactive({ scale: 1, offsetX: 0, offsetY: 0 })
+const selectedWorld = ref<{ x: number; y: number } | null>(null)
+const hoverWorld = ref<{ x: number; y: number } | null>(null)
+
+const markers = ref<Marker[]>([])
+const activeMarkerId = ref<string | null>(null)
+const activeMarker = computed(() => {
+  if (!activeMarkerId.value) return null
+  return markers.value.find((m) => m.id === activeMarkerId.value) || null
+})
+
+const fmt = (n: number) => (Number.isFinite(n) ? n.toFixed(1) : '0.0')
+
+function clampWorld(wx: number, wy: number) {
+  return { x: Math.min(bounds.width, Math.max(0, wx)), y: Math.min(bounds.height, Math.max(0, wy)) }
+}
+function worldToScreen(wx: number, wy: number) {
+  return { sx: wx * view.scale + view.offsetX, sy: wy * view.scale + view.offsetY }
+}
+function screenToWorld(sx: number, sy: number) {
+  return { wx: (sx - view.offsetX) / view.scale, wy: (sy - view.offsetY) / view.scale }
+}
+
+let resizeObserver: ResizeObserver | null = null
+let dpr = 1
+let initDone = false
+let hasUserInteracted = false
+let renderQueued = false
+
+function scheduleRender() {
+  if (renderQueued) return
+  renderQueued = true
+  requestAnimationFrame(() => {
+    renderQueued = false
+    render()
+  })
+}
+
+function centerMap() {
+  const el = canvasAreaRef.value
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  view.offsetX = rect.width / 2 - (bounds.width * view.scale) / 2
+  view.offsetY = rect.height / 2 - (bounds.height * view.scale) / 2
+}
+
+function resizeCanvas() {
+  const canvas = canvasRef.value
+  const area = canvasAreaRef.value
+  if (!canvas || !area) return
+  const rect = area.getBoundingClientRect()
+  const w = Math.max(320, rect.width)
+  const h = Math.max(420, rect.height)
+  dpr = window.devicePixelRatio || 1
+  canvas.style.width = `${w}px`
+  canvas.style.height = `${h}px`
+  canvas.width = Math.round(w * dpr)
+  canvas.height = Math.round(h * dpr)
+  if (!initDone) {
+    initDone = true
+    centerMap()
+  } else if (!hasUserInteracted) {
+    centerMap()
+  }
+}
+
+function render() {
+  const canvas = canvasRef.value
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const width = canvas.clientWidth
+  const height = canvas.clientHeight
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.clearRect(0, 0, width, height)
+
+  ctx.fillStyle = '#f7f7f8'
+  ctx.fillRect(0, 0, width, height)
+
+  const tl = worldToScreen(0, 0)
+  const mapW = bounds.width * view.scale
+  const mapH = bounds.height * view.scale
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+  ctx.fillRect(tl.sx, tl.sy, mapW, mapH)
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.18)'
+  ctx.lineWidth = 2
+  ctx.strokeRect(tl.sx, tl.sy, mapW, mapH)
+  ctx.fillStyle = 'rgba(20, 20, 25, 0.55)'
+  ctx.font = '14px Segoe UI, Arial'
+  ctx.fillText('地图平面区域（待接入你的 2D 渲染）', tl.sx + 18, tl.sy + 28)
+
+  if (showGrid.value) {
+    const step = 100
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)'
+    ctx.lineWidth = 1
+    for (let x = -step; x <= bounds.width + step; x += step) {
+      const p = worldToScreen(x, 0)
+      ctx.beginPath()
+      ctx.moveTo(p.sx, tl.sy)
+      ctx.lineTo(p.sx, tl.sy + mapH)
+      ctx.stroke()
+    }
+    for (let y = -step; y <= bounds.height + step; y += step) {
+      const p = worldToScreen(0, y)
+      ctx.beginPath()
+      ctx.moveTo(tl.sx, p.sy)
+      ctx.lineTo(tl.sx + mapW, p.sy)
+      ctx.stroke()
+    }
   }
 
-  // 初始化收藏列表
-  const collectedStr = localStorage.getItem('bs_collected_maps');
-  if (collectedStr) {
-    collectedMapIds.value = JSON.parse(collectedStr);
+  const drawCross = (wx: number, wy: number, color: string, alpha = 1) => {
+    const p = worldToScreen(wx, wy)
+    ctx.strokeStyle = color
+    ctx.globalAlpha = alpha
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(p.sx - 12, p.sy)
+    ctx.lineTo(p.sx + 12, p.sy)
+    ctx.moveTo(p.sx, p.sy - 12)
+    ctx.lineTo(p.sx, p.sy + 12)
+    ctx.stroke()
+    ctx.globalAlpha = 1
   }
-});
+
+  if (hoverWorld.value && mode.value === 'inspect') drawCross(hoverWorld.value.x, hoverWorld.value.y, '#666', 0.7)
+  if (selectedWorld.value) drawCross(selectedWorld.value.x, selectedWorld.value.y, '#e53e3e', 0.9)
+
+  for (const m of markers.value) {
+    const p = worldToScreen(m.x, m.y)
+    const isActive = m.id === activeMarkerId.value
+    ctx.fillStyle = isActive ? '#e53e3e' : '#3182ce'
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(p.sx, p.sy, isActive ? 9 : 7, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    if (isActive) {
+      ctx.fillStyle = 'rgba(20, 20, 25, 0.9)'
+      ctx.font = '12px Segoe UI, Arial'
+      ctx.textAlign = 'left'
+      ctx.fillText(m.label, p.sx + 10, p.sy - 10)
+    }
+  }
+}
+
+function getCanvasRelativePosition(e: PointerEvent | WheelEvent) {
+  const canvas = canvasRef.value
+  if (!canvas) return null
+  const rect = canvas.getBoundingClientRect()
+  return { sx: e.clientX - rect.left, sy: e.clientY - rect.top }
+}
+
+function findMarkerAtScreen(sx: number, sy: number) {
+  let best: Marker | null = null
+  let bestD2 = Infinity
+  const t = 14
+  for (const m of markers.value) {
+    const p = worldToScreen(m.x, m.y)
+    const dx = p.sx - sx
+    const dy = p.sy - sy
+    const d2 = dx * dx + dy * dy
+    if (d2 <= t * t && d2 < bestD2) {
+      best = m
+      bestD2 = d2
+    }
+  }
+  return best
+}
+
+const dragState = reactive({ dragging: false, moved: false, startClientX: 0, startClientY: 0, startOffsetX: 0, startOffsetY: 0 })
+
+function onPointerDown(e: PointerEvent) {
+  if (e.button !== 0) return
+  const canvas = canvasRef.value
+  if (!canvas) return
+  canvas.setPointerCapture(e.pointerId)
+  dragState.dragging = true
+  dragState.moved = false
+  dragState.startClientX = e.clientX
+  dragState.startClientY = e.clientY
+  dragState.startOffsetX = view.offsetX
+  dragState.startOffsetY = view.offsetY
+}
+
+function onPointerMove(e: PointerEvent) {
+  const pos = getCanvasRelativePosition(e)
+  if (!pos) return
+  if (dragState.dragging) {
+    hasUserInteracted = true
+    const dx = e.clientX - dragState.startClientX
+    const dy = e.clientY - dragState.startClientY
+    if (Math.abs(dx) + Math.abs(dy) > 5) dragState.moved = true
+    view.offsetX = dragState.startOffsetX + dx
+    view.offsetY = dragState.startOffsetY + dy
+    scheduleRender()
+    return
+  }
+  const w = screenToWorld(pos.sx, pos.sy)
+  hoverWorld.value = clampWorld(w.wx, w.wy)
+  scheduleRender()
+}
+
+function onPointerUp(e: PointerEvent) {
+  if (!dragState.dragging) return
+  dragState.dragging = false
+  const pos = getCanvasRelativePosition(e)
+  if (!pos) return
+  if (dragState.moved) return
+
+  hasUserInteracted = true
+  const w = screenToWorld(pos.sx, pos.sy)
+  const clamped = clampWorld(w.wx, w.wy)
+
+  if (mode.value === 'mark') {
+    const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`
+    markers.value.push({ id, x: clamped.x, y: clamped.y, label: `标记 ${markers.value.length + 1}`, note: '' })
+    activeMarkerId.value = id
+    selectedWorld.value = { x: clamped.x, y: clamped.y }
+    scheduleRender()
+    return
+  }
+
+  const hit = findMarkerAtScreen(pos.sx, pos.sy)
+  if (hit) {
+    activeMarkerId.value = hit.id
+    selectedWorld.value = { x: hit.x, y: hit.y }
+  } else {
+    activeMarkerId.value = null
+    selectedWorld.value = { x: clamped.x, y: clamped.y }
+  }
+  scheduleRender()
+}
+
+function onPointerLeave() {
+  hoverWorld.value = null
+  scheduleRender()
+}
+
+function handleWheel(e: WheelEvent) {
+  const pos = getCanvasRelativePosition(e)
+  if (!pos) return
+  const wBefore = screenToWorld(pos.sx, pos.sy)
+  const factor = Math.exp(-e.deltaY * 0.0015)
+  const nextScale = Math.max(minScale, Math.min(maxScale, view.scale * factor))
+  if (nextScale === view.scale) return
+
+  view.scale = nextScale
+  view.offsetX = pos.sx - wBefore.wx * view.scale
+  view.offsetY = pos.sy - wBefore.wy * view.scale
+  hasUserInteracted = true
+  scheduleRender()
+}
+
+function resetView() {
+  hasUserInteracted = false
+  view.scale = 1
+  centerMap()
+  scheduleRender()
+}
+
+function adjustZoom(direction: 1 | -1) {
+  const nextScale = direction === 1 ? view.scale * 1.12 : view.scale / 1.12
+  view.scale = Math.max(minScale, Math.min(maxScale, nextScale))
+  hasUserInteracted = true
+  centerMap()
+  scheduleRender()
+}
+
+function clearMarkers() {
+  if (markers.value.length === 0) return
+  if (!confirm('确定清空所有标记吗？')) return
+  markers.value = []
+  activeMarkerId.value = null
+  selectedWorld.value = null
+  scheduleRender()
+}
+
+function deleteMarker(id: string) {
+  markers.value = markers.value.filter((m) => m.id !== id)
+  if (activeMarkerId.value === id) activeMarkerId.value = null
+  selectedWorld.value = null
+  scheduleRender()
+}
+
+function selectMarker(id: string) {
+  const m = markers.value.find((mm) => mm.id === id)
+  if (!m) return
+  activeMarkerId.value = id
+  selectedWorld.value = { x: m.x, y: m.y }
+  scheduleRender()
+}
+
+watch(() => [markers.value.length, showGrid.value, mode.value], () => scheduleRender())
+
+onMounted(async () => {
+  await nextTick()
+  resizeCanvas()
+  scheduleRender()
+  if (canvasAreaRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      resizeCanvas()
+      scheduleRender()
+    })
+    resizeObserver.observe(canvasAreaRef.value)
+  }
+})
 
 onUnmounted(() => {
-  // 移除事件监听
-  document.removeEventListener('fullscreenchange', handleFullScreenChange);
-  document.removeEventListener('webkitfullscreenchange', handleFullScreenChange);
-  document.removeEventListener('MSFullscreenChange', handleFullScreenChange);
-
-  // 保存收藏列表到本地存储
-  localStorage.setItem('bs_collected_maps', JSON.stringify(collectedMapIds.value));
-});
+  resizeObserver?.disconnect()
+})
 </script>
 
 <style scoped>
-/* 基础样式重置 */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
-
-.bs-map-page {
+.gm-page {
   min-height: 100vh;
-  color: #333;
-  background-color: #f8f9fa;
+  background: #f8f9fa;
+  color: #111;
 }
-
 .container {
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
-
-/* 顶部导航 */
 .page-header {
-  background-color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   position: sticky;
   top: 0;
-  z-index: 999;
+  z-index: 1000;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
-
 .header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
-
 .logo {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1a1a1a;
+  font-weight: 800;
+  white-space: nowrap;
 }
-
 .logo i {
   color: #e53e3e;
-  font-size: 1.5rem;
 }
-
 .main-nav {
   display: flex;
   gap: 2rem;
 }
-
 .nav-link {
   color: #666;
   text-decoration: none;
-  font-weight: 500;
-  transition: all 0.2s;
-  position: relative;
+  font-weight: 600;
 }
-
-.nav-link:hover, .nav-link.active {
+.nav-link.active,
+.nav-link:hover {
   color: #e53e3e;
 }
-
 .nav-link.active::after {
   content: '';
   position: absolute;
@@ -671,778 +569,326 @@ onUnmounted(() => {
   background-color: #e53e3e;
   border-radius: 3px;
 }
-
 .user-info {
   position: relative;
 }
-
 .user-avatar {
   width: 42px;
   height: 42px;
   border-radius: 50%;
   cursor: pointer;
   border: 2px solid #eee;
-  transition: border-color 0.2s;
 }
-
 .user-avatar:hover {
   border-color: #e53e3e;
 }
-
 .user-menu {
   position: absolute;
   top: 100%;
   right: 0;
-  width: 160px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   overflow: hidden;
-  margin-top: 0.5rem;
-  z-index: 1000;
+  min-width: 160px;
 }
-
 .user-menu a {
   display: block;
-  padding: 0.8rem 1rem;
+  padding: 0.75rem 1rem;
   color: #666;
   text-decoration: none;
-  transition: background-color 0.2s;
+  font-weight: 600;
 }
-
 .user-menu a:hover {
-  background-color: #f5f5f5;
+  background: #f5f5f5;
   color: #e53e3e;
 }
-
-/* 主视觉Banner */
-.map-banner {
-  height: 420px;
-  background-image: url('https://picsum.photos/id/1041/1920/420');
-  background-size: cover;
-  background-position: center;
-  position: relative;
+.gm-main {
+  padding: 2rem 0 2.5rem;
 }
-
-.banner-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.4) 100%);
-  display: flex;
-  align-items: center;
-}
-
-.banner-overlay .container {
-  color: #fff;
-}
-
-.banner-overlay h1 {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-  line-height: 1.2;
-}
-
-.banner-overlay p {
-  font-size: 1.1rem;
-  margin-bottom: 2rem;
-  opacity: 0.9;
-  max-width: 600px;
-}
-
-.banner-actions {
-  display: flex;
-  gap: 1rem;
-}
-
-.btn-primary, .btn-secondary {
-  padding: 0.9rem 1.8rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.btn-primary {
-  background-color: #e53e3e;
-  color: #fff;
-}
-
-.btn-primary:hover {
-  background-color: #d32f2f;
-  transform: translateY(-2px);
-}
-
-.btn-secondary {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.btn-secondary:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
-}
-
-/* 地图列表区 */
-.map-list-section {
-  padding: 3rem 0;
-}
-
-.map-filter {
-  margin-bottom: 2rem;
-}
-
-.map-filter h2 {
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
-  color: #1a1a1a;
-}
-
-.filter-tabs {
-  display: flex;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-}
-
-.filter-tab {
-  padding: 0.7rem 1.5rem;
-  border-radius: 25px;
-  background-color: #fff;
-  border: 1px solid #eee;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.95rem;
-}
-
-.filter-tab:hover {
-  border-color: #e53e3e;
-  color: #e53e3e;
-}
-
-.filter-tab.active {
-  background-color: #e53e3e;
-  color: #fff;
-  border-color: #e53e3e;
-}
-
-.map-card-grid {
+.gm-workspace {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: 1fr 360px;
   gap: 1.5rem;
 }
-
-.map-card {
-  background-color: #fff;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s;
-  cursor: pointer;
+.gm-map-col {
+  min-width: 0;
 }
-
-.map-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
-}
-
-.card-thumb {
-  position: relative;
-  height: 200px;
-}
-
-.card-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
-}
-
-.map-card:hover .card-thumb img {
-  transform: scale(1.05);
-}
-
-.card-tag {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  padding: 0.3rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #fff;
-  background-color: #e53e3e;
-}
-
-.card-tag.new {
-  background-color: #48bb78;
-}
-
-.card-body {
-  padding: 1.2rem;
-}
-
-.card-title {
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
-  color: #1a1a1a;
-}
-
-.card-meta {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.85rem;
-  color: #999;
-  margin-bottom: 0.8rem;
-}
-
-.card-meta span {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.card-desc {
-  font-size: 0.9rem;
-  color: #666;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* 地图详情弹窗 */
-.map-detail-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.modal-mask {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  cursor: pointer;
-}
-
-.modal-box {
-  position: relative;
-  background-color: #fff;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 1300px;
-  max-height: 90vh;
-  overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-}
-
-.modal-box.small {
-  max-width: 500px;
-  max-height: auto;
-}
-
-.modal-header {
-  padding: 1.2rem 1.5rem;
-  background-color: #fafafa;
-  border-bottom: 1px solid #eee;
+.gm-toolbar {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
-
-.modal-header h2 {
-  font-size: 1.25rem;
-  color: #1a1a1a;
-  margin: 0;
-}
-
-.modal-tools {
+.gm-modes {
   display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.gm-mode-btn {
+  padding: 0.65rem 1.05rem;
+  border-radius: 10px;
+  border: 1px solid #e8e8e8;
+  background: #fff;
+  cursor: pointer;
+  color: #555;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
   gap: 0.5rem;
 }
-
-.tool-btn {
+.gm-mode-btn.active {
+  border-color: #e53e3e;
+  background: #e53e3e;
+  color: #fff;
+}
+.gm-toolbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.gm-scale-pill {
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #eee;
+  color: #666;
+  font-size: 0.92rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.gm-icon-btn {
   width: 38px;
   height: 38px;
-  border-radius: 8px;
-  border: none;
-  background-color: transparent;
-  color: #666;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  background: #fff;
   cursor: pointer;
-  display: flex;
+  color: #666;
+}
+.gm-icon-btn:hover:not(:disabled) {
+  border-color: #e53e3e;
+  color: #e53e3e;
+}
+.gm-icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.gm-switch {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
+  gap: 0.55rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #eee;
+  cursor: pointer;
+  color: #666;
+  font-weight: 700;
 }
-
-.tool-btn:hover {
-  background-color: #f5f5f5;
-  color: #e53e3e;
+.gm-canvas-wrap {
+  position: relative;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 14px;
+  overflow: hidden;
+  min-height: 620px;
 }
-
-.tool-btn.close-btn:hover {
-  color: #e53e3e;
+.gm-canvas {
+  width: 100%;
+  height: 640px;
+  touch-action: none;
+  display: block;
 }
-
-.modal-body {
-  padding: 1.5rem;
-  overflow-y: auto;
-  max-height: calc(90vh - 70px);
+.gm-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
-
-.modal-box.small .modal-body {
-  max-height: none;
+.gm-readout {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.92rem;
+  color: #333;
 }
-
-/* 地图控制栏 */
-.map-control {
+.gm-selected {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  background: rgba(229, 62, 62, 0.08);
+  border: 1px solid rgba(229, 62, 62, 0.22);
+  border-radius: 12px;
+  padding: 0.6rem 0.85rem;
+  color: #b83232;
+  font-weight: 800;
+  font-size: 0.92rem;
+}
+.gm-hint {
+  margin-top: 0.8rem;
+  color: #666;
+  font-size: 0.95rem;
+}
+.gm-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.gm-card {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 14px;
+  padding: 1rem;
+}
+.gm-card-title {
+  font-weight: 900;
+  color: #1a1a1a;
+  margin-bottom: 0.8rem;
+}
+.gm-card-title-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.control-group {
-  display: flex;
-  gap: 0.8rem;
-}
-
-.control-group.left {
-  gap: 0.5rem;
-}
-
-.control-btn {
-  padding: 0.6rem 1.2rem;
-  border-radius: 8px;
-  border: 1px solid #eee;
-  background-color: #fff;
-  color: #666;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: all 0.2s;
-  font-size: 0.9rem;
-}
-
-.control-btn.active {
-  background-color: #e53e3e;
-  color: #fff;
-  border-color: #e53e3e;
-}
-
-.control-btn:hover:not(.active) {
-  border-color: #ddd;
-  background-color: #f9f9f9;
-}
-
-.control-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.zoom-label {
-  font-size: 0.9rem;
-  color: #666;
-  margin-right: 0.5rem;
-}
-
-.zoom-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid #eee;
-  background-color: #fff;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.zoom-btn:hover {
-  border-color: #e53e3e;
-  color: #e53e3e;
-}
-
-.zoom-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 地图展示区 */
-.map-display {
-  background-color: #f5f5f5;
-  border-radius: 12px;
-  overflow: hidden;
-  position: relative;
-  min-height: 500px;
-}
-
-.map-wrapper {
-  position: relative;
-  width: 100%;
-  height: auto;
-  cursor: default;
-}
-
-.map-img {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-/* 标记样式 */
-.system-marker, .user-marker {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  cursor: pointer;
-  z-index: 10;
-}
-
-.marker-dot {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 2px #fff, 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s;
-}
-
-.system-marker:hover .marker-dot {
-  transform: scale(1.3);
-}
-
-.user-marker {
-  color: #e53e3e;
-  font-size: 26px;
-  transition: transform 0.2s;
-}
-
-.user-marker:hover {
-  transform: translate(-50%, -50%) scale(1.2);
-}
-
-.marker-tooltip {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(-10px);
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 0.9rem;
-  width: 240px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  z-index: 20;
-  opacity: 1;
-  transition: opacity 0.2s;
-}
-
-.marker-tooltip::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 8px;
-  border-style: solid;
-  border-color: #fff transparent transparent transparent;
-}
-
-.marker-tooltip h4 {
-  font-size: 1rem;
-  margin-bottom: 0.3rem;
-  color: #1a1a1a;
-}
-
-.marker-tooltip p {
-  font-size: 0.85rem;
-  margin-bottom: 0.6rem;
-  color: #666;
-  line-height: 1.4;
-}
-
-.tooltip-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.tooltip-tags span {
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  background-color: #f5f5f5;
-  color: #666;
-  border-radius: 4px;
-}
-
-.delete-mark-btn {
-  background-color: #fef2f2;
-  color: #e53e3e;
-  border: none;
-  border-radius: 4px;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.delete-mark-btn:hover {
-  background-color: #fee2e2;
-}
-
-/* 图例样式 */
-.map-legend {
-  margin-top: 1.5rem;
-  background-color: #fafafa;
-  border-radius: 12px;
-  padding: 1.2rem;
-  border: 1px solid #eee;
-}
-
-.map-legend h3 {
-  font-size: 1rem;
-  margin-bottom: 0.8rem;
-  color: #1a1a1a;
-}
-
-.legend-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
   gap: 0.6rem;
-  font-size: 0.9rem;
+}
+.gm-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.55rem 0;
+  border-top: 1px dashed #f1f1f1;
+  color: #666;
+  gap: 0.8rem;
+}
+.gm-row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.gm-row b {
+  color: #1a1a1a;
+  font-weight: 900;
+}
+.gm-empty {
+  padding: 0.6rem 0.2rem;
   color: #666;
 }
-
-.legend-color {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
-}
-
-/* 标记输入弹窗表单样式 */
-.form-group {
-  margin-bottom: 1.2rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
-}
-
-.required {
-  color: #e53e3e;
-}
-
-.form-control {
-  width: 100%;
-  padding: 0.9rem;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  transition: border-color 0.2s;
-}
-
-.form-control:focus {
-  outline: none;
-  border-color: #e53e3e;
-  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
-}
-
-.modal-footer {
+.gm-marker-list {
   display: flex;
-  justify-content: flex-end;
-  gap: 0.8rem;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #eee;
+  flex-direction: column;
+  gap: 0.6rem;
 }
-
-/* 页脚样式 */
+.gm-marker-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.gm-marker-pick {
+  flex: 1;
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+.gm-marker-pick:hover {
+  background: #fafafa;
+}
+.gm-marker-pick.active {
+  border-color: rgba(229, 62, 62, 0.45);
+  background: rgba(229, 62, 62, 0.08);
+  color: #b83232;
+}
+.gm-marker-del {
+  border-radius: 10px;
+  border: 1px solid rgba(229, 62, 62, 0.25);
+  background: rgba(229, 62, 62, 0.08);
+  color: #b83232;
+  cursor: pointer;
+  padding: 0.55rem 0.7rem;
+  font-weight: 900;
+}
+.gm-link-btn {
+  border: 0;
+  background: transparent;
+  color: #e53e3e;
+  font-weight: 900;
+  cursor: pointer;
+}
+.gm-link-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.gm-edit {
+  margin-top: 1rem;
+  border-top: 1px dashed #f1f1f1;
+  padding-top: 0.9rem;
+}
+.gm-edit-title {
+  font-weight: 900;
+  margin-bottom: 0.6rem;
+}
+.gm-field {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+}
+.gm-field:first-of-type {
+  margin-top: 0;
+}
+.gm-field span {
+  color: #666;
+  font-weight: 700;
+}
+.gm-input {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  outline: none;
+  font-size: 0.95rem;
+}
+.gm-textarea {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  outline: none;
+  resize: vertical;
+}
 .page-footer {
-  background-color: #1a1a1a;
+  background: #1a1a1a;
   color: #999;
-  padding: 3rem 0;
-  margin-top: 3rem;
+  margin-top: 2.5rem;
+  padding: 2.5rem 0;
 }
-
 .footer-content {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
   gap: 2rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
-
 .footer-logo {
   display: flex;
-  align-items: center;
   gap: 0.8rem;
-  font-size: 1.25rem;
-  font-weight: 700;
+  align-items: center;
+  font-weight: 800;
   color: #fff;
 }
-
 .footer-logo i {
   color: #e53e3e;
-  font-size: 1.5rem;
 }
-
-.footer-links {
-  display: flex;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.footer-links a {
-  color: #999;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.footer-links a:hover {
-  color: #e53e3e;
-}
-
-.copyright {
-  font-size: 0.85rem;
-  opacity: 0.7;
-}
-
-/* 响应式适配 */
 @media (max-width: 992px) {
-  .main-nav {
-    gap: 1.5rem;
-  }
-
-  .banner-overlay h1 {
-    font-size: 2rem;
-  }
-
-  .banner-overlay p {
-    font-size: 1rem;
-  }
-
-  .map-card-grid {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  }
-}
-
-@media (max-width: 768px) {
-  .header-content {
-    height: auto;
-    padding: 1rem 0;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-
-  .main-nav {
-    order: 3;
-    width: 100%;
-    justify-content: center;
-    gap: 1rem;
-  }
-
-  .map-banner {
-    height: 350px;
-  }
-
-  .banner-overlay h1 {
-    font-size: 1.8rem;
-  }
-
-  .banner-actions {
-    flex-direction: column;
-    gap: 0.8rem;
-  }
-
-  .btn-primary, .btn-secondary {
-    width: 100%;
-  }
-
-  .map-control {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .control-group.right {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .map-display {
-    min-height: 350px;
-  }
-
-  .marker-tooltip {
-    width: 200px;
-    font-size: 0.8rem;
-  }
-}
-
-@media (max-width: 576px) {
-  .map-card-grid {
+  .gm-workspace {
     grid-template-columns: 1fr;
   }
-
-  .modal-box {
-    max-height: 85vh;
-  }
-
-  .modal-body {
-    padding: 1rem;
-  }
-
-  .map-control {
-    gap: 0.8rem;
-  }
-
-  .control-btn {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-  }
-}
-
-/* 全屏模式适配 */
-.modal-box.fullscreen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  border-radius: 0;
-}
-
-.fullscreen .modal-body {
-  max-height: calc(100vh - 70px);
 }
 </style>
