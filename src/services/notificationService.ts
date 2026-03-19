@@ -1,4 +1,4 @@
-import { Notification } from '../type/notification';
+import { Notification } from '../types/notification';
 
 // 模拟通知数据
 const mockNotifications: Notification[] = [

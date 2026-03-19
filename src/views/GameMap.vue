@@ -1,631 +1,1229 @@
 <template>
-  <div class="game-map-page">
-    <!-- 头部导航 -->
-    <Header 
-      :current-user="currentUser" 
-      :user-avatar="userAvatar"
-      @logout="handleLogout"
-    />
-
-    <!-- 页面标题区 -->
-    <section class="page-header">
+  <div class="bs-map-page">
+    <header class="page-header">
       <div class="container">
         <div class="header-content">
-          <h1>
-            <i class="fa fa-map-o" style="color: #3b82f6;"></i> 
-            游戏地图导航
-          </h1>
-          <p>探索游戏地图，标记关键位置，规划战术路线</p>
+          <div class="logo">
+            <i class="fa fa-crosshairs"></i>
+            <span>三角洲行动 - 地图库</span>
+          </div>
+          <nav class="main-nav">
+            <a href="/" class="nav-link">首页</a>
+            <a href="/map" class="nav-link active">地图导航</a>
+            <a href="/strategy" class="nav-link">攻略合集</a>
+            <a href="/community" class="nav-link">玩家社区</a>
+          </nav>
+          <div class="user-info">
+            <img :src="userAvatar" alt="用户头像" class="user-avatar" @click="toggleUserMenu">
+            <div class="user-menu" v-if="showUserMenu">
+              <a href="/profile">个人中心</a>
+              <a href="/collection">我的收藏</a>
+              <a href="#" @click="handleLogout">退出登录</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主视觉Banner -->
+    <section class="map-banner">
+      <div class="banner-overlay">
+        <div class="container">
+          <h1>战场地图全解析</h1>
+          <p>精准标记资源点、战术点位，助力战术规划</p>
+          <div class="banner-actions">
+            <button class="btn-primary" @click="scrollToMapList">浏览地图</button>
+            <button class="btn-secondary" @click="goToStrategy">查看攻略</button>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- 地图控制与显示区 -->
-    <section class="map-container">
+    <!-- 地图筛选与列表区 -->
+    <section class="map-list-section" ref="mapListRef">
       <div class="container">
-        <!-- 地图控制栏 -->
-        <div class="map-controls">
-          <div class="map-selector">
-            <label>选择地图：</label>
-            <select v-model="selectedMap" @change="loadMap">
-              <option value="delta_main">三角洲行动 - 城市战区</option>
-              <option value="apex-kings">Apex英雄 - 国王峡谷</option>
-              <option value="pubg-erangel">绝地求生 - 艾伦格</option>
-            </select>
+        <!-- 筛选栏 -->
+        <div class="map-filter">
+          <h2>选择地图类型</h2>
+          <div class="filter-tabs">
+            <button class="filter-tab" :class="{ active: activeMapType === 'all' }" @click="activeMapType = 'all'">全部地图</button>
+            <button class="filter-tab" :class="{ active: activeMapType === 'city' }" @click="activeMapType = 'city'">城市战区</button>
+            <button class="filter-tab" :class="{ active: activeMapType === 'wild' }" @click="activeMapType = 'wild'">野外战场</button>
+            <button class="filter-tab" :class="{ active: activeMapType === 'special' }" @click="activeMapType = 'special'">特殊模式</button>
           </div>
-          
-          <div class="map-tools">
-            <button class="btn secondary" @click="zoomIn">
-              <i class="fa fa-search-plus"></i> 放大
+        </div>
+
+        <!-- 地图卡片网格 -->
+        <div class="map-card-grid">
+          <div class="map-card" v-for="map in filteredMaps" :key="map.id" @click="openMapDetail(map.id)">
+            <div class="card-thumb">
+              <img :src="map.coverUrl" :alt="map.name">
+              <div class="card-tag" v-if="map.isHot">热门</div>
+              <div class="card-tag new" v-if="map.isNew">新地图</div>
+            </div>
+            <div class="card-body">
+              <h3 class="card-title">{{ map.name }}</h3>
+              <div class="card-meta">
+                <span><i class="fa fa-map-marker"></i> {{ map.pointCount }}个战术点</span>
+                <span><i class="fa fa-star"></i> {{ map.collectCount }}人收藏</span>
+              </div>
+              <p class="card-desc">{{ map.desc }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 地图详情弹窗（核心交互） -->
+    <div class="map-detail-modal" v-if="showMapModal">
+      <div class="modal-mask" @click="closeMapModal"></div>
+      <div class="modal-box">
+        <!-- 弹窗头部 -->
+        <div class="modal-header">
+          <h2>{{ currentMap.name }}</h2>
+          <div class="modal-tools">
+            <button class="tool-btn" @click="toggleFullScreen" :title="isFullScreen ? '退出全屏' : '全屏查看'">
+              <i class="fa" :class="isFullScreen ? 'fa-compress' : 'fa-expand'"></i>
             </button>
-            <button class="btn secondary" @click="zoomOut">
-              <i class="fa fa-search-minus"></i> 缩小
+            <button class="tool-btn" @click="toggleCollectMap" :title="isCollected ? '取消收藏' : '收藏地图'">
+              <i class="fa" :class="isCollected ? 'fa-star' : 'fa-star-o'"></i>
             </button>
-            <button class="btn secondary" @click="resetView">
-              <i class="fa fa-refresh"></i> 重置视图
-            </button>
-            <button class="btn secondary" :class="{ active: isAddingMarker }" @click="toggleAddMarker">
-              <i class="fa fa-map-marker"></i> {{ isAddingMarker ? '取消标记' : '添加标记' }}
-            </button>
-            <button class="btn secondary" @click="clearMarkers">
-              <i class="fa fa-trash"></i> 清除标记
+            <button class="tool-btn close-btn" @click="closeMapModal" title="关闭">
+              <i class="fa fa-times"></i>
             </button>
           </div>
         </div>
-        
-        <!-- 地图显示区域 -->
-        <div class="map-wrapper">
-          <div 
-            class="map-canvas"
-            ref="mapCanvas"
-            @click="handleMapClick"
-            :style="{
-              transform: `scale(${zoomLevel})`,
-              transformOrigin: 'center',
-              transition: 'transform 0.3s ease'
-            }"
-          >
-            <!-- 地图图片 -->
-            <img 
-              :src="currentMapImage" 
-              :alt="currentMapName" 
-              class="map-image"
-              ref="mapImage"
-            >
-            
-            <!-- 互动标记点 -->
+
+        <!-- 弹窗主体 -->
+        <div class="modal-body">
+          <!-- 地图控制栏 -->
+          <div class="map-control">
+            <div class="control-group left">
+              <button class="control-btn" :class="{ active: mapMode === 'view' }" @click="mapMode = 'view'">
+                <i class="fa fa-eye"></i> 查看模式
+              </button>
+              <button class="control-btn" :class="{ active: mapMode === 'mark' }" @click="mapMode = 'mark'">
+                <i class="fa fa-flag"></i> 标记模式
+              </button>
+              <button class="control-btn" @click="clearUserMarks" :disabled="userMarks.length === 0">
+                <i class="fa fa-trash"></i> 清除标记
+              </button>
+            </div>
+            <div class="control-group right">
+              <span class="zoom-label">缩放：{{ Math.round(zoomLevel * 100) }}%</span>
+              <button class="zoom-btn" @click="adjustZoom(-0.1)" :disabled="zoomLevel <= 0.5">
+                <i class="fa fa-search-minus"></i>
+              </button>
+              <button class="zoom-btn" @click="adjustZoom(0.1)" :disabled="zoomLevel >= 2">
+                <i class="fa fa-search-plus"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 地图展示区 -->
+          <div class="map-display">
             <div 
-              v-for="marker in markers" 
-              :key="marker.id"
-              class="map-marker"
-              :style="{
-                left: `${marker.x}%`,
-                top: `${marker.y}%`,
-                backgroundColor: marker.color
-              }"
-              @click.stop="showMarkerDetails(marker)"
+              class="map-wrapper"
+              @click="handleMapClick"
+              :style="{ transform: `scale(${zoomLevel})`, transformOrigin: 'center', transition: 'transform 0.3s ease' }"
             >
-              <i class="fa fa-flag"></i>
-              <div class="marker-tooltip" v-if="marker.showTooltip">
-                <h4>{{ marker.title }}</h4>
-                <p>{{ marker.description }}</p>
-                <div class="marker-actions">
-                  <button @click.stop="editMarker(marker)">
-                    <i class="fa fa-pencil"></i>
-                  </button>
-                  <button @click.stop="removeMarker(marker.id)">
-                    <i class="fa fa-times"></i>
+              <img :src="currentMap.mapUrl" :alt="currentMap.name" class="map-img">
+
+              <!-- 系统战术点标记 -->
+              <div 
+                class="system-marker"
+                v-for="(point, idx) in currentMap.tacticalPoints"
+                :key="idx"
+                :style="{ left: `${point.x}%`, top: `${point.y}%` }"
+                @click.stop="showPointDetail(point, idx)"
+              >
+                <div class="marker-dot" :style="{ backgroundColor: point.color }"></div>
+                <div class="marker-tooltip" v-if="point.showTooltip">
+                  <h4>{{ point.name }}</h4>
+                  <p>{{ point.desc }}</p>
+                  <div class="tooltip-tags">
+                    <span v-for="tag in point.tags" :key="tag">{{ tag }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 用户自定义标记 -->
+              <div 
+                class="user-marker"
+                v-for="(mark, idx) in userMarks"
+                :key="idx"
+                :style="{ left: `${mark.x}%`, top: `${mark.y}%` }"
+                @click.stop="showUserMarkDetail(mark, idx)"
+              >
+                <i class="fa fa-map-pin"></i>
+                <div class="marker-tooltip" v-if="mark.showTooltip">
+                  <h4>{{ mark.title }}</h4>
+                  <p>{{ mark.desc || '无描述' }}</p>
+                  <button class="delete-mark-btn" @click.stop="deleteUserMark(idx)">
+                    <i class="fa fa-trash"></i> 删除
                   </button>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        
-        <!-- 地图图例 -->
-        <div class="map-legend">
-          <h3>地图图例</h3>
-          <div class="legend-items">
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #3b82f6;"></div>
-              <span>安全区</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #ef4444;"></div>
-              <span>危险区域</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #10b981;"></div>
-              <span>资源点</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #f59e0b;"></div>
-              <span>任务目标</span>
+
+          <!-- 图例说明 -->
+          <div class="map-legend">
+            <h3>战术点图例</h3>
+            <div class="legend-list">
+              <div class="legend-item" v-for="type in tacticalTypes" :key="type.id">
+                <div class="legend-color" :style="{ backgroundColor: type.color }"></div>
+                <span>{{ type.name }}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- 标记编辑弹窗 -->
-    <div class="modal-backdrop" v-if="showMarkerModal">
-      <div class="modal">
+    <!-- 自定义标记输入弹窗 -->
+    <div class="mark-input-modal" v-if="showMarkInputModal">
+      <div class="modal-mask" @click="closeMarkInputModal"></div>
+      <div class="modal-box small">
         <div class="modal-header">
-          <h3>{{ editingMarker ? '编辑标记' : '添加标记' }}</h3>
-          <button class="close-btn" @click="closeMarkerModal">
+          <h2>添加战术标记</h2>
+          <button class="tool-btn close-btn" @click="closeMarkInputModal">
             <i class="fa fa-times"></i>
           </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>标记名称</label>
+            <label>标记名称 <span class="required">*</span></label>
             <input 
               type="text" 
-              v-model="markerForm.title" 
+              v-model="markForm.title" 
               class="form-control"
-              placeholder="输入标记名称"
+              placeholder="例如：伏击点、物资箱、狙击位"
             >
           </div>
           <div class="form-group">
             <label>标记描述</label>
             <textarea 
-              v-model="markerForm.description" 
+              v-model="markForm.desc" 
               class="form-control"
               rows="3"
-              placeholder="输入标记描述"
+              placeholder="输入标记详情（可选）"
             ></textarea>
           </div>
           <div class="form-group">
             <label>标记类型</label>
-            <select v-model="markerForm.color" class="form-control">
-              <option value="#3b82f6">安全区</option>
-              <option value="#ef4444">危险区域</option>
-              <option value="#10b981">资源点</option>
-              <option value="#f59e0b">任务目标</option>
+            <select v-model="markForm.type" class="form-control">
+              <option value="ambush">伏击点</option>
+              <option value="resource">资源点</option>
+              <option value="snipe">狙击位</option>
+              <option value="safe">安全区</option>
+              <option value="danger">危险区</option>
             </select>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn secondary" @click="closeMarkerModal">取消</button>
-          <button class="btn primary" @click="saveMarker">保存</button>
+          <button class="btn-secondary" @click="closeMarkInputModal">取消</button>
+          <button class="btn-primary" @click="saveUserMark">确定添加</button>
         </div>
       </div>
     </div>
 
     <!-- 页脚 -->
-    <Footer />
-
-    <!-- 背景装饰 -->
-    <div class="background-decoration">
-      <div class="bg-blob blob-1"></div>
-      <div class="bg-blob blob-2"></div>
-    </div>
+    <footer class="page-footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-logo">
+            <i class="fa fa-crosshairs"></i>
+            <span>三角洲行动地图库</span>
+          </div>
+          <div class="footer-links">
+            <a href="/about">关于我们</a>
+            <a href="/terms">用户协议</a>
+            <a href="/privacy">隐私政策</a>
+            <a href="/feedback">反馈建议</a>
+          </div>
+          <div class="copyright">
+            © 2025 三角洲行动地图库 版权所有 | 基于项目 BS 开发
+          </div>
+        </div>
+      </div>
+    </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import Header from '../layouts/Header.vue';
-import Footer from '../layouts/Footer.vue';
 
-// 路由实例
 const router = useRouter();
 
-// 类型定义
-interface Marker {
-  id: string;
-  x: number; // 百分比坐标
-  y: number; // 百分比坐标
-  title: string;
-  description: string;
-  color: string;
-  showTooltip: boolean;
-}
+// ===== 基础状态 =====
+const userAvatar = ref('https://picsum.photos/id/237/100/100'); // 项目用户头像默认值
+const showUserMenu = ref(false);
+const mapListRef = ref<HTMLDivElement | null>(null);
 
-interface MapConfig {
-  id: string;
-  name: string;
-  imageUrl: string;
-}
+// ===== 地图核心数据（贴合项目：仅保留三角洲行动相关地图） =====
+// 战术点类型定义
+const tacticalTypes = ref([
+  { id: 'high-resource', name: '高级资源区', color: '#e53e3e' },
+  { id: 'mid-resource', name: '中级资源区', color: '#ed8936' },
+  { id: 'ambush', name: '伏击点', color: '#9f7aea' },
+  { id: 'snipe', name: '狙击位', color: '#3182ce' },
+  { id: 'safe', name: '安全区', color: '#48bb78' },
+  { id: 'danger', name: '危险区', color: '#f56565' },
+  { id: 'task', name: '任务目标点', color: '#4299e1' }
+]);
 
-// 状态管理
-const currentUser = ref<{ username?: string; avatar?: string } | null>(null);
-const userAvatar = ref('https://picsum.photos/id/237/200/200');
-
-// 地图配置
-const maps = ref<MapConfig[]>([
+// 地图数据（纯三角洲行动相关）
+const maps = reactive([
   {
-    id: 'delta-main',
-    name: '三角洲行动 - 城市战区',
-    imageUrl: 'https://picsum.photos/id/1015/1200/800'
+    id: 'city-01',
+    name: '都市核心区',
+    type: 'city', // 城市战区
+    coverUrl: 'https://picsum.photos/id/1031/600/400',
+    mapUrl: 'https://picsum.photos/id/1031/1200/800',
+    desc: '繁华都市改造的战场，高楼林立，巷战频发',
+    pointCount: 32,
+    collectCount: 25689,
+    isHot: true,
+    isNew: false,
+    tacticalPoints: [
+      { x: 28, y: 35, name: '中央广场', desc: '高级资源集中区，易守难攻', tags: ['高级资源', '热门'], color: '#e53e3e', showTooltip: false },
+      { x: 65, y: 42, name: '金融中心', desc: '高楼密集，适合狙击和伏击', tags: ['狙击位', '伏击点'], color: '#3182ce', showTooltip: false },
+      { x: 42, y: 68, name: '地下停车场', desc: '中级资源区，地形复杂', tags: ['中级资源', '防守'], color: '#ed8936', showTooltip: false },
+      { x: 78, y: 25, name: '电视台', desc: '任务目标点，信号覆盖区', tags: ['任务目标', '战略'], color: '#4299e1', showTooltip: false },
+      { x: 55, y: 82, name: '郊区安全屋', desc: '初期发育点，物资充足', tags: ['安全区', '初期'], color: '#48bb78', showTooltip: false }
+    ]
   },
   {
-    id: 'apex-kings',
-    name: 'Apex英雄 - 国王峡谷',
-    imageUrl: 'https://picsum.photos/id/1016/1200/800'
+    id: 'city-02',
+    name: '港口工业区',
+    type: 'city',
+    coverUrl: 'https://picsum.photos/id/1047/600/400',
+    mapUrl: 'https://picsum.photos/id/1047/1200/800',
+    desc: '港口与工业区结合的战场，集装箱与厂房交织',
+    pointCount: 28,
+    collectCount: 18956,
+    isHot: false,
+    isNew: false,
+    tacticalPoints: [
+      { x: 35, y: 40, name: '集装箱码头', desc: '中级资源区，掩体丰富', tags: ['中级资源', '巷战'], color: '#ed8936', showTooltip: false },
+      { x: 62, y: 32, name: '工厂仓库', desc: '高级资源区，封闭空间', tags: ['高级资源', '近战'], color: '#e53e3e', showTooltip: false },
+      { x: 22, y: 75, name: '港口办公室', desc: '狙击点位，视野开阔', tags: ['狙击位', '战略'], color: '#3182ce', showTooltip: false }
+    ]
   },
   {
-    id: 'pubg-erangel',
-    name: '绝地求生 - 艾伦格',
-    imageUrl: 'https://picsum.photos/id/1018/1200/800'
+    id: 'wild-01',
+    name: '荒野训练营',
+    type: 'wild', // 野外战场
+    coverUrl: 'https://picsum.photos/id/1019/600/400',
+    mapUrl: 'https://picsum.photos/id/1019/1200/800',
+    desc: '开阔野外战场，地形起伏，适合远距离作战',
+    pointCount: 24,
+    collectCount: 15623,
+    isHot: false,
+    isNew: false,
+    tacticalPoints: [
+      { x: 48, y: 30, name: '山顶瞭望塔', desc: '绝佳狙击位，360度视野', tags: ['狙击位', '视野'], color: '#3182ce', showTooltip: false },
+      { x: 72, y: 55, name: '废弃村落', desc: '中级资源区，适合小队集结', tags: ['中级资源', '集结'], color: '#ed8936', showTooltip: false },
+      { x: 28, y: 65, name: '山谷伏击点', desc: '天然掩体，适合伏击', tags: ['伏击点', '隐蔽'], color: '#9f7aea', showTooltip: false }
+    ]
+  },
+  {
+    id: 'special-01',
+    name: '夜间突袭',
+    type: 'special', // 特殊模式
+    coverUrl: 'https://picsum.photos/id/1039/600/400',
+    mapUrl: 'https://picsum.photos/id/1039/1200/800',
+    desc: '夜间模式专属地图，能见度低，依赖战术配合',
+    pointCount: 20,
+    collectCount: 12897,
+    isHot: false,
+    isNew: true,
+    tacticalPoints: [
+      { x: 38, y: 45, name: '灯光控制室', desc: '控制全场灯光，战略要点', tags: ['任务目标', '战略'], color: '#4299e1', showTooltip: false },
+      { x: 68, y: 38, name: '废弃加油站', desc: '中级资源区，易守难攻', tags: ['中级资源', '防守'], color: '#ed8936', showTooltip: false },
+      { x: 52, y: 70, name: '黑暗山谷', desc: '伏击绝佳地点，隐蔽性强', tags: ['伏击点', '隐蔽'], color: '#9f7aea', showTooltip: false }
+    ]
+  },
+  {
+    id: 'city-03',
+    name: '老城区',
+    type: 'city',
+    coverUrl: 'https://picsum.photos/id/1048/600/400',
+    mapUrl: 'https://picsum.photos/id/1048/1200/800',
+    desc: '老式建筑群战场，街道狭窄，近战为主',
+    pointCount: 26,
+    collectCount: 16789,
+    isHot: false,
+    isNew: false,
+    tacticalPoints: [
+      { x: 42, y: 32, name: '老城广场', desc: '高级资源区，人流密集', tags: ['高级资源', '热门'], color: '#e53e3e', showTooltip: false },
+      { x: 75, y: 58, name: '居民楼群', desc: '中级资源区，巷战频发', tags: ['中级资源', '巷战'], color: '#ed8936', showTooltip: false },
+      { x: 25, y: 62, name: '屋顶狙击点', desc: '视野开阔，适合远程打击', tags: ['狙击位', '远程'], color: '#3182ce', showTooltip: false }
+    ]
   }
 ]);
 
-// 地图状态
-const selectedMap = ref('delta-main');
-const currentMapImage = ref(maps.value[0].imageUrl);
-const currentMapName = ref(maps.value[0].name);
-const zoomLevel = ref(1);
-const mapCanvas = ref<HTMLDivElement | null>(null);
-const mapImage = ref<HTMLImageElement | null>(null);
-
-// 标记状态
-const markers = ref<Marker[]>([]);
-const isAddingMarker = ref(false);
-const showMarkerModal = ref(false);
-const editingMarker = ref<Marker | null>(null);
-const markerForm = ref<Partial<Marker>>({
-  title: '',
-  description: '',
-  color: '#3b82f6'
-});
-
-// 初始化
-onMounted(() => {
-  // 获取用户信息
-  const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user');
-  if (userStr) {
-    currentUser.value = JSON.parse(userStr);
-    userAvatar.value = currentUser.value?.avatar || userAvatar.value;
-  } else {
-    router.push('/login');
-  }
-
-  // 加载默认地图标记
-  loadDefaultMarkers();
-});
-
-// 计算属性
+// ===== 筛选与地图状态 =====
+const activeMapType = ref('all'); // 筛选类型：all/city/wild/special
 const filteredMaps = computed(() => {
-  return maps.value;
+  if (activeMapType.value === 'all') return maps;
+  return maps.filter(map => map.type === activeMapType.value);
 });
 
-// 地图控制方法
-const loadMap = () => {
-  const map = maps.value.find(m => m.id === selectedMap.value);
-  if (map) {
-    currentMapImage.value = map.imageUrl;
-    currentMapName.value = map.name;
-  }
-  // 重置地图状态
+// ===== 地图详情弹窗状态 =====
+const showMapModal = ref(false);
+const currentMap = ref(maps[0]); // 当前选中地图
+const mapMode = ref('view'); // view/mark
+const zoomLevel = ref(1);
+const isFullScreen = ref(false);
+const collectedMapIds = ref<string[]>([]); // 已收藏地图ID
+const isCollected = computed(() => collectedMapIds.value.includes(currentMap.value.id));
+
+// ===== 用户标记状态 =====
+const userMarks = ref<Array<{
+  x: number;
+  y: number;
+  title: string;
+  desc?: string;
+  type: string;
+  showTooltip: boolean;
+}>>([]);
+const showMarkInputModal = ref(false);
+const markForm = ref({
+  title: '',
+  desc: '',
+  type: 'ambush',
+  x: 0,
+  y: 0
+});
+
+// ===== 页面交互方法 =====
+// 滚动到地图列表
+const scrollToMapList = () => {
+  mapListRef.value?.scrollIntoView({ behavior: 'smooth' });
+};
+
+// 前往攻略页面
+const goToStrategy = () => {
+  router.push('/strategy');
+};
+
+// 用户菜单切换
+const toggleUserMenu = () => {
+  showUserMenu.value = !showUserMenu.value;
+};
+
+// 登出处理（贴合项目路由）
+const handleLogout = () => {
+  localStorage.removeItem('bs_token');
+  localStorage.removeItem('bs_user');
+  router.push('/login');
+};
+
+// 打开地图详情
+const openMapDetail = (mapId: string) => {
+  const targetMap = maps.find(map => map.id === mapId);
+  if (targetMap) currentMap.value = targetMap;
+  showMapModal.value = true;
   zoomLevel.value = 1;
-  markers.value = [];
-  loadDefaultMarkers();
+  mapMode.value = 'view';
+  userMarks.value = [];
 };
 
-const zoomIn = () => {
-  if (zoomLevel.value < 2) {
-    zoomLevel.value += 0.1;
+// 关闭地图详情
+const closeMapModal = () => {
+  showMapModal.value = false;
+  isFullScreen.value = false;
+  // 退出全屏
+  if (document.fullscreenElement) {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+    else if ((document as any).msExitFullscreen) (document as any).msExitFullscreen();
   }
 };
 
-const zoomOut = () => {
-  if (zoomLevel.value > 0.5) {
-    zoomLevel.value -= 0.1;
+// 全屏切换
+const toggleFullScreen = () => {
+  const modalBox = document.querySelector('.modal-box') as HTMLElement;
+  if (!modalBox) return;
+
+  if (!isFullScreen.value) {
+    // 进入全屏
+    if (modalBox.requestFullscreen) modalBox.requestFullscreen();
+    else if ((modalBox as any).webkitRequestFullscreen) (modalBox as any).webkitRequestFullscreen();
+    else if ((modalBox as any).msRequestFullscreen) (modalBox as any).msRequestFullscreen();
+  } else {
+    // 退出全屏
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen();
+    else if ((document as any).msExitFullscreen) (document as any).msExitFullscreen();
   }
 };
 
-const resetView = () => {
-  zoomLevel.value = 1;
+// 监听全屏状态变化
+const handleFullScreenChange = () => {
+  isFullScreen.value = !!document.fullscreenElement;
 };
 
-// 标记管理方法
-const loadDefaultMarkers = () => {
-  // 根据当前地图加载默认标记
-  if (selectedMap.value === 'delta-main') {
-    markers.value = [
-      {
-        id: 'm1',
-        x: 30,
-        y: 40,
-        title: '主资源区',
-        description: '高价值装备刷新点，竞争激烈',
-        color: '#10b981',
-        showTooltip: false
-      },
-      {
-        id: 'm2',
-        x: 60,
-        y: 50,
-        title: '安全屋',
-        description: '初期安全区域，适合新手发育',
-        color: '#3b82f6',
-        showTooltip: false
-      },
-      {
-        id: 'm3',
-        x: 45,
-        y: 70,
-        title: '敌方据点',
-        description: '敌方高概率驻守区域',
-        color: '#ef4444',
-        showTooltip: false
-      }
-    ];
-  }
+// 缩放调整
+const adjustZoom = (delta: number) => {
+  zoomLevel.value = Math.max(0.5, Math.min(2, zoomLevel.value + delta));
 };
 
-const toggleAddMarker = () => {
-  isAddingMarker.value = !isAddingMarker.value;
-  if (!isAddingMarker.value) {
-    closeMarkerModal();
-  }
-};
-
+// 地图点击（标记模式）
 const handleMapClick = (e: MouseEvent) => {
-  if (!isAddingMarker.value || !mapCanvas.value) return;
-  
-  // 计算点击位置的百分比
-  const rect = mapCanvas.value.getBoundingClientRect();
+  if (mapMode.value !== 'mark') return;
+
+  const mapWrapper = e.currentTarget as HTMLDivElement;
+  const rect = mapWrapper.getBoundingClientRect();
   const x = ((e.clientX - rect.left) / rect.width) * 100;
   const y = ((e.clientY - rect.top) / rect.height) * 100;
-  
-  // 重置表单并打开弹窗
-  editingMarker.value = null;
-  markerForm.value = {
+
+  // 重置标记表单并打开输入弹窗
+  markForm.value = {
     title: '',
-    description: '',
-    color: '#3b82f6',
+    desc: '',
+    type: 'ambush',
     x,
     y
   };
-  showMarkerModal.value = true;
+  showMarkInputModal.value = true;
 };
 
-const showMarkerDetails = (marker: Marker) => {
-  // 切换标记的 tooltip 显示状态
-  markers.value = markers.value.map(m => 
-    m.id === marker.id ? { ...m, showTooltip: !m.showTooltip } : 
-    { ...m, showTooltip: false }
-  );
+// 显示系统战术点详情
+const showPointDetail = (point: any, idx: number) => {
+  // 关闭其他点的tooltip
+  currentMap.value.tacticalPoints.forEach((p, i) => {
+    if (i !== idx) p.showTooltip = false;
+  });
+  point.showTooltip = !point.showTooltip;
 };
 
-const editMarker = (marker: Marker) => {
-  editingMarker.value = marker;
-  markerForm.value = { ...marker };
-  showMarkerModal.value = true;
+// 显示用户标记详情
+const showUserMarkDetail = (mark: any, idx: number) => {
+  // 关闭其他标记的tooltip
+  userMarks.value.forEach((m, i) => {
+    if (i !== idx) m.showTooltip = false;
+  });
+  mark.showTooltip = !mark.showTooltip;
 };
 
-const removeMarker = (id: string) => {
-  markers.value = markers.value.filter(marker => marker.id !== id);
-};
-
-const clearMarkers = () => {
-  if (confirm('确定要清除所有标记吗？')) {
-    markers.value = [];
-  }
-};
-
-// 弹窗控制
-const closeMarkerModal = () => {
-  showMarkerModal.value = false;
-  markerForm.value = {
-    title: '',
-    description: '',
-    color: '#3b82f6'
-  };
-  editingMarker.value = null;
-};
-
-const saveMarker = () => {
-  if (!markerForm.value.title) {
+// 保存用户标记
+const saveUserMark = () => {
+  if (!markForm.value.title.trim()) {
     alert('请输入标记名称');
     return;
   }
-  
-  if (editingMarker.value) {
-    // 更新现有标记
-    markers.value = markers.value.map(m => 
-      m.id === editingMarker.value!.id 
-        ? { ...m, ...markerForm.value, showTooltip: true } 
-        : m
-    );
-  } else if (markerForm.value.x !== undefined && markerForm.value.y !== undefined) {
-    // 添加新标记
-    const newMarker: Marker = {
-      id: `m-${Date.now()}`,
-      x: markerForm.value.x,
-      y: markerForm.value.y,
-      title: markerForm.value.title || '',
-      description: markerForm.value.description || '',
-      color: markerForm.value.color || '#3b82f6',
-      showTooltip: true
-    };
-    markers.value.push(newMarker);
-  }
-  
-  closeMarkerModal();
+
+  userMarks.value.push({
+    x: markForm.value.x,
+    y: markForm.value.y,
+    title: markForm.value.title,
+    desc: markForm.value.desc,
+    type: markForm.value.type,
+    showTooltip: true
+  });
+
+  showMarkInputModal.value = false;
 };
 
-// 登出处理
-const handleLogout = () => {
-  localStorage.removeItem('delta_token');
-  sessionStorage.removeItem('delta_token');
-  localStorage.removeItem('delta_user');
-  sessionStorage.removeItem('delta_user');
-  router.push('/login');
+// 关闭标记输入弹窗
+const closeMarkInputModal = () => {
+  showMarkInputModal.value = false;
+  markForm.value = { title: '', desc: '', type: 'ambush', x: 0, y: 0 };
 };
+
+// 删除用户标记
+const deleteUserMark = (idx: number) => {
+  userMarks.value.splice(idx, 1);
+};
+
+// 清除所有用户标记
+const clearUserMarks = () => {
+  if (confirm('确定清除所有自定义标记吗？')) {
+    userMarks.value = [];
+  }
+};
+
+// 收藏/取消收藏地图
+const toggleCollectMap = () => {
+  if (isCollected.value) {
+    collectedMapIds.value = collectedMapIds.value.filter(id => id !== currentMap.value.id);
+    alert(`已取消收藏 ${currentMap.value.name}`);
+  } else {
+    collectedMapIds.value.push(currentMap.value.id);
+    alert(`已收藏 ${currentMap.value.name} 到我的收藏`);
+  }
+};
+
+// ===== 生命周期 =====
+onMounted(() => {
+  // 监听全屏变化
+  document.addEventListener('fullscreenchange', handleFullScreenChange);
+  document.addEventListener('webkitfullscreenchange', handleFullScreenChange);
+  document.addEventListener('MSFullscreenChange', handleFullScreenChange);
+
+  // 初始化用户信息（从项目本地存储读取）
+  const userStr = localStorage.getItem('bs_user');
+  if (userStr) {
+    const user = JSON.parse(userStr);
+    userAvatar.value = user.avatar || userAvatar.value;
+  } else {
+    router.push('/login'); // 未登录跳转登录页（贴合项目路由）
+  }
+
+  // 初始化收藏列表
+  const collectedStr = localStorage.getItem('bs_collected_maps');
+  if (collectedStr) {
+    collectedMapIds.value = JSON.parse(collectedStr);
+  }
+});
+
+onUnmounted(() => {
+  // 移除事件监听
+  document.removeEventListener('fullscreenchange', handleFullScreenChange);
+  document.removeEventListener('webkitfullscreenchange', handleFullScreenChange);
+  document.removeEventListener('MSFullscreenChange', handleFullScreenChange);
+
+  // 保存收藏列表到本地存储
+  localStorage.setItem('bs_collected_maps', JSON.stringify(collectedMapIds.value));
+});
 </script>
 
 <style scoped>
-.game-map-page {
+/* 基础样式重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+}
+
+.bs-map-page {
   min-height: 100vh;
-  background-color: #0f172a;
-  color: #e2e8f0;
-  font-family: 'Segoe UI', sans-serif;
-  position: relative;
+  color: #333;
+  background-color: #f8f9fa;
 }
 
 .container {
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 1.5rem;
 }
 
+/* 顶部导航 */
 .page-header {
-  padding: 2rem 0;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 999;
 }
 
-.header-content h1 {
-  font-size: 2rem;
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 72px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
-  color: #f3f4f6;
+  color: #1a1a1a;
 }
 
-.header-content p {
+.logo i {
+  color: #e53e3e;
+  font-size: 1.5rem;
+}
+
+.main-nav {
+  display: flex;
+  gap: 2rem;
+}
+
+.nav-link {
+  color: #666;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.nav-link:hover, .nav-link.active {
+  color: #e53e3e;
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-color: #e53e3e;
+  border-radius: 3px;
+}
+
+.user-info {
+  position: relative;
+}
+
+.user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #eee;
+  transition: border-color 0.2s;
+}
+
+.user-avatar:hover {
+  border-color: #e53e3e;
+}
+
+.user-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 160px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-top: 0.5rem;
+  z-index: 1000;
+}
+
+.user-menu a {
+  display: block;
+  padding: 0.8rem 1rem;
+  color: #666;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.user-menu a:hover {
+  background-color: #f5f5f5;
+  color: #e53e3e;
+}
+
+/* 主视觉Banner */
+.map-banner {
+  height: 420px;
+  background-image: url('https://picsum.photos/id/1041/1920/420');
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+.banner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.4) 100%);
+  display: flex;
+  align-items: center;
+}
+
+.banner-overlay .container {
+  color: #fff;
+}
+
+.banner-overlay h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.banner-overlay p {
   font-size: 1.1rem;
-  color: #94a3b8;
+  margin-bottom: 2rem;
+  opacity: 0.9;
+  max-width: 600px;
 }
 
-/* 地图容器样式 */
-.map-container {
+.banner-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-primary, .btn-secondary {
+  padding: 0.9rem 1.8rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background-color: #e53e3e;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background-color: #d32f2f;
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+/* 地图列表区 */
+.map-list-section {
   padding: 3rem 0;
 }
 
-.map-controls {
+.map-filter {
+  margin-bottom: 2rem;
+}
+
+.map-filter h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #1a1a1a;
+}
+
+.filter-tabs {
   display: flex;
+  gap: 0.8rem;
   flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  gap: 1rem;
-  padding: 1rem;
-  background-color: #1e293b;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(55, 65, 81, 0.5);
 }
 
-.map-selector {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+.filter-tab {
+  padding: 0.7rem 1.5rem;
+  border-radius: 25px;
+  background-color: #fff;
+  border: 1px solid #eee;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95rem;
 }
 
-.map-selector label {
-  font-weight: 500;
-  color: #e2e8f0;
+.filter-tab:hover {
+  border-color: #e53e3e;
+  color: #e53e3e;
 }
 
-.map-selector select {
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  background-color: #0f172a;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: #e2e8f0;
+.filter-tab.active {
+  background-color: #e53e3e;
+  color: #fff;
+  border-color: #e53e3e;
+}
+
+.map-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.map-card {
+  background-color: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
   cursor: pointer;
 }
 
-.map-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+.map-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
 }
 
-/* 地图画布样式 */
-.map-wrapper {
-  width: 100%;
-  overflow: auto;
-  background-color: #1e293b;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  padding: 1rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-.map-canvas {
-  width: 100%;
-  height: auto;
+.card-thumb {
   position: relative;
-  cursor: grab;
+  height: 200px;
 }
 
-.map-canvas:active {
-  cursor: grabbing;
-}
-
-.map-image {
+.card-thumb img {
   width: 100%;
-  height: auto;
-  border-radius: 0.5rem;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
 }
 
-/* 标记点样式 */
-.map-marker {
+.map-card:hover .card-thumb img {
+  transform: scale(1.05);
+}
+
+.card-tag {
   position: absolute;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
+  top: 10px;
+  left: 10px;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #fff;
+  background-color: #e53e3e;
+}
+
+.card-tag.new {
+  background-color: #48bb78;
+}
+
+.card-body {
+  padding: 1.2rem;
+}
+
+.card-title {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  color: #1a1a1a;
+}
+
+.card-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #999;
+  margin-bottom: 0.8rem;
+}
+
+.card-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.card-desc {
+  font-size: 0.9rem;
+  color: #666;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 地图详情弹窗 */
+.map-detail-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.modal-box {
+  position: relative;
+  background-color: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 1300px;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-box.small {
+  max-width: 500px;
+  max-height: auto;
+}
+
+.modal-header {
+  padding: 1.2rem 1.5rem;
+  background-color: #fafafa;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  font-size: 1.25rem;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.modal-tools {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tool-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: none;
+  background-color: transparent;
+  color: #666;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+}
+
+.tool-btn:hover {
+  background-color: #f5f5f5;
+  color: #e53e3e;
+}
+
+.tool-btn.close-btn:hover {
+  color: #e53e3e;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  max-height: calc(90vh - 70px);
+}
+
+.modal-box.small .modal-body {
+  max-height: none;
+}
+
+/* 地图控制栏 */
+.map-control {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.control-group {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.control-group.left {
+  gap: 0.5rem;
+}
+
+.control-btn {
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  background-color: #fff;
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.control-btn.active {
+  background-color: #e53e3e;
+  color: #fff;
+  border-color: #e53e3e;
+}
+
+.control-btn:hover:not(.active) {
+  border-color: #ddd;
+  background-color: #f9f9f9;
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.zoom-label {
+  font-size: 0.9rem;
+  color: #666;
+  margin-right: 0.5rem;
+}
+
+.zoom-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  background-color: #fff;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.zoom-btn:hover {
+  border-color: #e53e3e;
+  color: #e53e3e;
+}
+
+.zoom-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 地图展示区 */
+.map-display {
+  background-color: #f5f5f5;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  min-height: 500px;
+}
+
+.map-wrapper {
+  position: relative;
+  width: 100%;
+  height: auto;
+  cursor: default;
+}
+
+.map-img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* 标记样式 */
+.system-marker, .user-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
   z-index: 10;
 }
 
-.map-marker:hover {
+.marker-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fff, 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+}
+
+.system-marker:hover .marker-dot {
+  transform: scale(1.3);
+}
+
+.user-marker {
+  color: #e53e3e;
+  font-size: 26px;
+  transition: transform 0.2s;
+}
+
+.user-marker:hover {
   transform: translate(-50%, -50%) scale(1.2);
-  z-index: 20;
 }
 
 .marker-tooltip {
   position: absolute;
   bottom: 100%;
   left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 0.9rem;
+  width: 240px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.marker-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
   transform: translateX(-50%);
-  background-color: #1e293b;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  width: 200px;
-  margin-bottom: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
-  z-index: 30;
+  border-width: 8px;
+  border-style: solid;
+  border-color: #fff transparent transparent transparent;
 }
 
 .marker-tooltip h4 {
-  margin: 0 0 0.25rem 0;
-  color: #f3f4f6;
-  font-size: 0.9rem;
+  font-size: 1rem;
+  margin-bottom: 0.3rem;
+  color: #1a1a1a;
 }
 
 .marker-tooltip p {
-  margin: 0 0 0.5rem 0;
-  color: #94a3b8;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.6rem;
+  color: #666;
+  line-height: 1.4;
 }
 
-.marker-actions {
+.tooltip-tags {
   display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
-.marker-actions button {
-  background: none;
+.tooltip-tags span {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  background-color: #f5f5f5;
+  color: #666;
+  border-radius: 4px;
+}
+
+.delete-mark-btn {
+  background-color: #fef2f2;
+  color: #e53e3e;
   border: none;
-  color: #94a3b8;
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: background-color 0.2s;
 }
 
-.marker-actions button:hover {
-  color: #3b82f6;
+.delete-mark-btn:hover {
+  background-color: #fee2e2;
 }
 
-/* 地图图例 */
+/* 图例样式 */
 .map-legend {
   margin-top: 1.5rem;
-  padding: 1rem;
-  background-color: #1e293b;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(55, 65, 81, 0.5);
+  background-color: #fafafa;
+  border-radius: 12px;
+  padding: 1.2rem;
+  border: 1px solid #eee;
 }
 
 .map-legend h3 {
-  margin: 0 0 1rem 0;
-  color: #f3f4f6;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  margin-bottom: 0.8rem;
+  color: #1a1a1a;
 }
 
-.legend-items {
+.legend-list {
   display: flex;
   flex-wrap: wrap;
   gap: 1.5rem;
@@ -634,194 +1232,217 @@ const handleLogout = () => {
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  color: #666;
 }
 
 .legend-color {
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
-/* 弹窗样式 */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 1rem;
-}
-
-.modal {
-  width: 100%;
-  max-width: 500px;
-  background-color: #1e293b;
-  border-radius: 1rem;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.25rem;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.5);
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #f3f4f6;
-  font-size: 1.25rem;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  font-size: 1.25rem;
-  transition: color 0.2s ease;
-}
-
-.close-btn:hover {
-  color: #ef4444;
-}
-
-.modal-body {
-  padding: 1.25rem;
-}
-
+/* 标记输入弹窗表单样式 */
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: 1.2rem;
 }
 
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #e2e8f0;
   font-weight: 500;
+  color: #333;
+}
+
+.required {
+  color: #e53e3e;
 }
 
 .form-control {
   width: 100%;
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  background-color: #0f172a;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: #e2e8f0;
-  font-size: 1rem;
+  padding: 0.9rem;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
 }
 
 .form-control:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: #e53e3e;
+  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid rgba(55, 65, 81, 0.5);
+  gap: 0.8rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #eee;
 }
 
-/* 按钮样式复用自项目 */
-.btn {
-  padding: 0.5rem 1.25rem;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none;
-  font-size: 0.9rem;
-  display: inline-flex;
+/* 页脚样式 */
+.page-footer {
+  background-color: #1a1a1a;
+  color: #999;
+  padding: 3rem 0;
+  margin-top: 3rem;
+}
+
+.footer-content {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 2rem;
 }
 
-.btn.primary {
-  background-color: #3b82f6;
-  color: white;
+.footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
 }
 
-.btn.primary:hover {
-  background-color: #2563eb;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3);
+.footer-logo i {
+  color: #e53e3e;
+  font-size: 1.5rem;
 }
 
-.btn.secondary {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid #3b82f6;
+.footer-links {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
-.btn.secondary:hover, .btn.secondary.active {
-  background-color: rgba(59, 130, 246, 0.2);
-  transform: translateY(-2px);
+.footer-links a {
+  color: #999;
+  text-decoration: none;
+  transition: color 0.2s;
 }
 
-/* 背景装饰复用 */
-.background-decoration {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 0;
+.footer-links a:hover {
+  color: #e53e3e;
 }
 
-.bg-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(128px);
-  opacity: 0.1;
+.copyright {
+  font-size: 0.85rem;
+  opacity: 0.7;
 }
 
-.blob-1 {
-  top: -20rem;
-  right: -20rem;
-  width: 40rem;
-  height: 40rem;
-  background-color: #3b82f6;
+/* 响应式适配 */
+@media (max-width: 992px) {
+  .main-nav {
+    gap: 1.5rem;
+  }
+
+  .banner-overlay h1 {
+    font-size: 2rem;
+  }
+
+  .banner-overlay p {
+    font-size: 1rem;
+  }
+
+  .map-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
 }
 
-.blob-2 {
-  bottom: -20rem;
-  left: -20rem;
-  width: 40rem;
-  height: 40rem;
-  background-color: #8b5cf6;
-}
-
-/* 响应式调整 */
 @media (max-width: 768px) {
-  .map-controls {
-    flex-direction: column;
-    align-items: stretch;
+  .header-content {
+    height: auto;
+    padding: 1rem 0;
+    flex-wrap: wrap;
+    gap: 1rem;
   }
-  
-  .map-selector {
+
+  .main-nav {
+    order: 3;
     width: 100%;
-  }
-  
-  .map-selector select {
-    flex: 1;
-    width: 100%;
-  }
-  
-  .map-tools {
     justify-content: center;
+    gap: 1rem;
   }
-  
+
+  .map-banner {
+    height: 350px;
+  }
+
+  .banner-overlay h1 {
+    font-size: 1.8rem;
+  }
+
+  .banner-actions {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .btn-primary, .btn-secondary {
+    width: 100%;
+  }
+
+  .map-control {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .control-group.right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .map-display {
+    min-height: 350px;
+  }
+
   .marker-tooltip {
-    width: 160px;
+    width: 200px;
     font-size: 0.8rem;
   }
+}
+
+@media (max-width: 576px) {
+  .map-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-box {
+    max-height: 85vh;
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+
+  .map-control {
+    gap: 0.8rem;
+  }
+
+  .control-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* 全屏模式适配 */
+.modal-box.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+}
+
+.fullscreen .modal-body {
+  max-height: calc(100vh - 70px);
 }
 </style>

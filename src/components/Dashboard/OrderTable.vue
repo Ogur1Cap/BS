@@ -44,7 +44,7 @@
 import { defineProps, defineExpose } from 'vue';
 
 // 定义订单数据类型
-interface Order {
+export interface Order {
   id: string;
   game: string;
   serviceType: string;
