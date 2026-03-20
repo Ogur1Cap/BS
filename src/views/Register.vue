@@ -170,6 +170,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { authApi } from '../api/authApi';
 
 // 路由实例
 const router = useRouter();
@@ -315,8 +316,7 @@ const handleRegister = async () => {
   isLoading.value = true;
   
   try {
-    // 模拟注册请求
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await authApi.register({ username: form.username, email: form.email, password: form.password })
     
     // 模拟注册成功，跳转到登录页
     router.push({

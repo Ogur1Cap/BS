@@ -1,0 +1,38 @@
+[
+  {
+    "id": "notif-1",
+    "title": "订单已完成",
+    "content": "您的\"三角洲行动全程护航\"订单已完成，感谢使用我们的服务",
+    "type": "order",
+    "isRead": false,
+    "createdAt": "2023-10-17T15:30:00",
+    "relatedId": "ORD-87621"
+  },
+  {
+    "id": "notif-2",
+    "title": "新消息提醒",
+    "content": "打手\"精英玩家007\"已回复您的咨询",
+    "type": "message",
+    "isRead": false,
+    "createdAt": "2023-10-17T10:15:00",
+    "relatedId": "MSG-4567"
+  },
+  {
+    "id": "notif-3",
+    "title": "系统公告",
+    "content": "本周特惠活动：所有护航服务享受8折优惠，截止日期10月31日",
+    "type": "system",
+    "isRead": true,
+    "createdAt": "2023-10-16T09:00:00"
+  },
+  {
+    "id": "notif-4",
+    "title": "订单已接单",
+    "content": "您的\"绝地求生段位提升\"订单已被打手接单",
+    "type": "order",
+    "isRead": true,
+    "createdAt": "2023-10-15T20:45:00",
+    "relatedId": "ORD-87542"
+  }
+]
+

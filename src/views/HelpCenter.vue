@@ -109,7 +109,7 @@ const router = useRouter();
 
 // —— 基础状态 ——
 // 用户信息（简化，只保留必要字段）
-const currentUser = ref<{ username?: string; avatar?: string } | null>(null);
+const currentUser = ref<{ username: string; avatar?: string }>({ username: '' });
 const userAvatar = ref('https://picsum.photos/id/237/200/200');
 
 // 搜索与分类

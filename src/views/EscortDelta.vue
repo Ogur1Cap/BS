@@ -383,10 +383,16 @@ const topPlayers = ref([
     level: 99,
     rank: '传奇',
     specialty: ['战术指挥', '精准狙击', '团队协作'],
+    rankText: '传奇',
+    rankColor: '#f59e0b',
+    skills: ['战术指挥', '精准狙击', '团队协作'],
     winRate: 82,
     completedOrders: 1246,
     rating: 4.9,
-    price: 180
+    price: 180,
+    pricePerHour: 180,
+    intro: '5年三角洲行动资深玩家，擅长团队指挥与高难度任务攻坚，全程直播操作',
+    tags: ['全程直播', '胜率保障', '段位包过']
   },
   {
     id: 'p2',
@@ -395,10 +401,16 @@ const topPlayers = ref([
     level: 97,
     rank: '大师',
     specialty: ['突击攻坚', '装备获取', '快速推进'],
+    rankText: '大师',
+    rankColor: '#8b5cf6',
+    skills: ['突击攻坚', '装备获取', '快速推进'],
     winRate: 78,
     completedOrders: 987,
     rating: 4.8,
-    price: 150
+    price: 150,
+    pricePerHour: 150,
+    intro: '专注装备代刷与突击任务，1小时可完成3个高价值物资点清缴',
+    tags: ['装备速刷', '突击专精', '高效完成']
   },
   {
     id: 'p3',
@@ -407,10 +419,16 @@ const topPlayers = ref([
     level: 95,
     rank: '钻石',
     specialty: ['战略规划', '特殊任务', '段位冲刺'],
+    rankText: '钻石',
+    rankColor: '#3b82f6',
+    skills: ['战略规划', '特殊任务', '段位冲刺'],
     winRate: 75,
     completedOrders: 856,
     rating: 4.7,
-    price: 130
+    price: 130,
+    pricePerHour: 130,
+    intro: '擅长为新手定制成长计划，边护航边教学，让你快速掌握游戏技巧',
+    tags: ['新手友好', '战术教学', '耐心指导']
   }
 ]);
 

@@ -28,3 +28,6 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+# Vue/tsc/Volar 生成的中间文件（仅用于类型推断，不参与运行）
+src/**/*.vue.js

@@ -231,6 +231,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { profileApi } from '../api/profileApi';
 
 // 导入组件
 import Header from '../layouts/Header.vue';
@@ -276,23 +277,24 @@ const stats = reactive({
   membershipDays: 168
 });
 
-// 初始化用户数据
-const initUserProfile = () => {
-  // 从本地存储获取用户信息（实际项目中从API获取）
-  const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user');
-  if (userStr) {
-    const userData = JSON.parse(userStr);
-    currentUser.value = userData;
-    
-    // 模拟用户资料数据
-    form.username = userData.username || '玩家_' + Math.floor(Math.random() * 10000);
-    form.email = `user_${Math.floor(Math.random() * 10000)}@example.com`;
-    form.avatar = userData.avatar || 'https://picsum.photos/id/237/200/200';
-    userAvatar.value = form.avatar;
-    
-    // 模拟其他资料
-    form.bio = '热爱游戏的玩家，擅长三角洲行动战术配合';
-    form.gamePreference = 'delta';
+// 初始化用户数据（来自 API / mock store）
+const initUserProfile = async () => {
+  const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user')
+  if (!userStr) return
+
+  try {
+    const profile = await profileApi.getProfile()
+
+    currentUser.value = { username: profile.username }
+    form.username = profile.username
+    form.email = profile.email
+    form.phone = profile.phone || ''
+    form.avatar = profile.avatar
+    userAvatar.value = profile.avatar
+    form.bio = profile.bio
+    form.gamePreference = profile.gamePreference
+  } catch (e) {
+    console.error('加载个人资料失败:', e)
   }
 };
 
@@ -392,24 +394,28 @@ const handleSubmit = async () => {
   isSubmitting.value = true;
   
   try {
-    // 模拟API请求
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // 更新本地存储的用户信息
-    const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user');
-    if (userStr) {
-      const userData = JSON.parse(userStr);
-      userData.username = form.username;
-      userData.avatar = form.avatar;
-      
-      if (localStorage.getItem('delta_user')) {
-        localStorage.setItem('delta_user', JSON.stringify(userData));
-      } else if (sessionStorage.getItem('delta_user')) {
-        sessionStorage.setItem('delta_user', JSON.stringify(userData));
-      }
-      
-      currentUser.value = userData;
+    const updated = await profileApi.updateProfile({
+      username: form.username,
+      email: form.email,
+      phone: form.phone || undefined,
+      avatar: form.avatar,
+      bio: form.bio,
+      gamePreference: form.gamePreference
+    })
+
+    // 同步到本地：其他页面展示依赖 delta_user
+    const updatedUser = {
+      username: updated.username,
+      avatar: updated.avatar,
+      email: updated.email,
+      phone: updated.phone
     }
+    if (localStorage.getItem('delta_user')) {
+      localStorage.setItem('delta_user', JSON.stringify(updatedUser))
+    } else if (sessionStorage.getItem('delta_user')) {
+      sessionStorage.setItem('delta_user', JSON.stringify(updatedUser))
+    }
+    currentUser.value = { username: updated.username }
     
     // 切换到查看模式
     toggleEditMode();

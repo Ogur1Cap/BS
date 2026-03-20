@@ -287,6 +287,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { ordersApi } from '../api/ordersApi';
 
 // 导入组件
 import Header from '../layouts/Header.vue';
@@ -320,135 +321,16 @@ const cancelReason = ref('');
 const showToast = ref(false);
 const toastMessage = ref('');
 const toastType = ref<'success' | 'error'>('success');
+const toastIcon = computed(() => (toastType.value === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'));
 
-// 初始化订单数据
-const initOrders = () => {
-  // 模拟订单数据
-  const mockOrders = [
-    {
-      id: 'ORD-87621',
-      game: '三角洲行动',
-      gameKey: 'delta',
-      gameImage: 'https://picsum.photos/id/237/60/60',
-      serviceType: '全程护航',
-      status: 'completed',
-      statusText: '已完成',
-      amount: 198,
-      createdAt: '2023-10-15T14:30:00',
-      player: {
-        id: 'player-101',
-        name: '精英玩家007',
-        avatar: 'https://picsum.photos/id/1012/40/40'
-      }
-    },
-    {
-      id: 'ORD-87542',
-      game: '绝地求生',
-      gameKey: 'pubg',
-      gameImage: 'https://picsum.photos/id/238/60/60',
-      serviceType: '段位提升',
-      status: 'ongoing',
-      statusText: '进行中',
-      amount: 298,
-      createdAt: '2023-10-16T09:15:00',
-      player: {
-        id: 'player-108',
-        name: '战神小菜鸡',
-        avatar: 'https://picsum.photos/id/1025/40/40'
-      }
-    },
-    {
-      id: 'ORD-87459',
-      game: '使命召唤',
-      gameKey: 'cod',
-      gameImage: 'https://picsum.photos/id/239/60/60',
-      serviceType: '任务代练',
-      status: 'completed',
-      statusText: '已完成',
-      amount: 158,
-      createdAt: '2023-10-12T19:45:00',
-      player: {
-        id: 'player-096',
-        name: 'COD大神',
-        avatar: 'https://picsum.photos/id/1074/40/40'
-      }
-    },
-    {
-      id: 'ORD-87345',
-      game: 'Apex英雄',
-      gameKey: 'apex',
-      gameImage: 'https://picsum.photos/id/240/60/60',
-      serviceType: '武器解锁',
-      status: 'pending',
-      statusText: '待接单',
-      amount: 128,
-      createdAt: '2023-10-17T11:30:00',
-      player: null
-    },
-    {
-      id: 'ORD-87215',
-      game: '三角洲行动',
-      gameKey: 'delta',
-      gameImage: 'https://picsum.photos/id/237/60/60',
-      serviceType: '装备代刷',
-      status: 'cancelled',
-      statusText: '已取消',
-      amount: 98,
-      createdAt: '2023-10-10T08:45:00',
-      player: null
-    },
-    {
-      id: 'ORD-87165',
-      game: '绝地求生',
-      gameKey: 'pubg',
-      gameImage: 'https://picsum.photos/id/238/60/60',
-      serviceType: '全程护航',
-      status: 'completed',
-      statusText: '已完成',
-      amount: 258,
-      createdAt: '2023-10-05T16:20:00',
-      player: {
-        id: 'player-108',
-        name: '战神小菜鸡',
-        avatar: 'https://picsum.photos/id/1025/40/40'
-      }
-    },
-    {
-      id: 'ORD-87052',
-      game: '使命召唤',
-      gameKey: 'cod',
-      gameImage: 'https://picsum.photos/id/239/60/60',
-      serviceType: '段位提升',
-      status: 'completed',
-      statusText: '已完成',
-      amount: 328,
-      createdAt: '2023-09-28T15:10:00',
-      player: {
-        id: 'player-096',
-        name: 'COD大神',
-        avatar: 'https://picsum.photos/id/1074/40/40'
-      }
-    },
-    {
-      id: 'ORD-86987',
-      game: '三角洲行动',
-      gameKey: 'delta',
-      gameImage: 'https://picsum.photos/id/237/60/60',
-      serviceType: '全程护航',
-      status: 'ongoing',
-      statusText: '进行中',
-      amount: 198,
-      createdAt: '2023-10-17T10:05:00',
-      player: {
-        id: 'player-101',
-        name: '精英玩家007',
-        avatar: 'https://picsum.photos/id/1012/40/40'
-      }
-    }
-  ];
-
-  orders.value = mockOrders;
-  isLoading.value = false;
+// 初始化订单数据（来自 API / mock store）
+const initOrders = async () => {
+  try {
+    isLoading.value = true;
+    orders.value = await ordersApi.listOrders();
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 // 获取当前用户信息
@@ -695,18 +577,10 @@ const confirmCancelOrder = async () => {
   try {
     isLoading.value = true;
     showCancelModal.value = false;
-    
-    // 模拟API请求
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // 更新订单状态
-    const orderIndex = orders.value.findIndex(order => order.id === cancelOrderId.value);
-    if (orderIndex !== -1) {
-      orders.value[orderIndex].status = 'cancelled';
-      orders.value[orderIndex].statusText = '已取消';
-    }
-    
-    // 显示成功提示
+
+    const updatedOrders = await ordersApi.cancelOrder(cancelOrderId.value);
+    orders.value = updatedOrders;
+
     showToastMessage('订单已成功取消', 'success');
   } catch (error) {
     console.error('取消订单失败:', error);

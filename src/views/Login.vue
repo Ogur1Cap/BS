@@ -168,6 +168,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { authApi } from '../api/authApi';
 
 // 路由实例
 const router = useRouter();
@@ -277,19 +278,15 @@ const handleLogin = async () => {
   isLoading.value = true;
   
   try {
-    // 模拟登录请求
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // 模拟登录成功，获取token
-    const mockToken = 'delta_action_club_token_' + Date.now();
-    
-    // 存储登录状态
+    const resp = await authApi.login({ username: form.username, password: form.password })
+
+    // 存储登录状态（记住我 / 仅本会话）
     if (form.rememberMe) {
-      localStorage.setItem('delta_token', mockToken);
-      localStorage.setItem('delta_user', JSON.stringify({ username: form.username }));
+      localStorage.setItem('delta_token', resp.token)
+      localStorage.setItem('delta_user', JSON.stringify(resp.user))
     } else {
-      sessionStorage.setItem('delta_token', mockToken);
-      sessionStorage.setItem('delta_user', JSON.stringify({ username: form.username }));
+      sessionStorage.setItem('delta_token', resp.token)
+      sessionStorage.setItem('delta_user', JSON.stringify(resp.user))
     }
     
     // 登录成功后跳转到首页

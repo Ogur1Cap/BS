@@ -285,7 +285,7 @@
                           <button 
                             type="button"
                             class="get-code-btn"
-                            @click="sendVerificationCode"
+                            @click="sendVerificationCode(false)"
                             :disabled="countdown > 0 || isSendingCode || !phoneForm.phone"
                           >
                             {{ countdown > 0 ? `${countdown}s后重发` : '获取验证码' }}

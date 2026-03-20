@@ -180,7 +180,7 @@ interface Player {
 
 // —— 状态管理 ——
 // 用户信息（从本地存储获取）
-const currentUser = ref<{ username: string; avatar?: string } | null>(null);
+const currentUser = ref<{ username: string; avatar?: string }>({ username: '' });
 const userAvatar = ref('https://picsum.photos/id/237/200/200'); // 默认头像
 
 // 筛选条件
@@ -188,6 +188,14 @@ const selectedRank = ref(''); // 选中的段位
 const selectedSkill = ref(''); // 选中的擅长领域
 const selectedPriceRange = ref(''); // 选中的价格范围
 const sortType = ref('rating'); // 排序方式
+
+const skillMap: Record<string, string> = {
+  tactical: '战术指挥',
+  snipe: '精准狙击',
+  assault: '突击攻坚',
+  equipment: '装备获取',
+  rank: '段位冲刺'
+};
 
 // 分页状态
 const currentPage = ref(1);
@@ -359,13 +367,6 @@ const filteredPlayers = computed<Player[]>(() => {
   // 2. 擅长领域筛选（包含任一选中领域即可）
   if (selectedSkill.value) {
     // 映射筛选值到中文领域（如"tactical" → "战术指挥"）
-    const skillMap: Record<string, string> = {
-      'tactical': '战术指挥',
-      'snipe': '精准狙击',
-      'assault': '突击攻坚',
-      'equipment': '装备获取',
-      'rank': '段位冲刺'
-    };
     const targetSkill = skillMap[selectedSkill.value];
     result = result.filter(player => player.skills.includes(targetSkill));
   }
