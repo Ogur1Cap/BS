@@ -1,6 +1,7 @@
 <template>
-  <div class="gm-page">
-    <header class="page-header">
+  <div class="game-map-page">
+    <Header :current-user="currentUser" :user-avatar="userAvatar" @logout="handleLogout" />
+    <header v-if="false" class="page-header">
       <div class="container">
         <div class="header-content">
           <div class="logo">
@@ -135,7 +136,7 @@
       </section>
     </main>
 
-    <footer class="page-footer">
+    <footer v-if="false" class="page-footer">
       <div class="container">
         <div class="footer-content">
           <div class="footer-logo">
@@ -146,34 +147,46 @@
         </div>
       </div>
     </footer>
+    <Footer />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import Header from '../layouts/Header.vue'
+import Footer from '../layouts/Footer.vue'
 
 const router = useRouter()
-const userAvatar = ref('https://picsum.photos/id/237/100/100')
+const currentUser = ref<{ username?: string; avatar?: string }>({ username: '' })
+const userAvatar = ref('https://picsum.photos/id/237/200/200')
 const showUserMenu = ref(false)
 const toggleUserMenu = () => (showUserMenu.value = !showUserMenu.value)
 const handleLogout = () => {
-  localStorage.removeItem('bs_token')
-  localStorage.removeItem('bs_user')
+  localStorage.removeItem('delta_token')
+  localStorage.removeItem('delta_user')
+  sessionStorage.removeItem('delta_token')
+  sessionStorage.removeItem('delta_user')
   router.push('/login')
 }
 
+const isAuthenticated = () =>
+  !!localStorage.getItem('delta_token') || !!sessionStorage.getItem('delta_token')
+
 onMounted(() => {
-  const userStr = localStorage.getItem('bs_user')
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr)
-      userAvatar.value = user.avatar || userAvatar.value
-    } catch {
-      // ignore
-    }
-  } else {
+  if (!isAuthenticated()) {
     router.push('/login')
+    return
+  }
+
+  try {
+    const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user')
+    if (!userStr) return
+    const user = JSON.parse(userStr)
+    currentUser.value = user
+    userAvatar.value = user.avatar || userAvatar.value
+  } catch {
+    // ignore
   }
 })
 
@@ -265,25 +278,25 @@ function render() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, width, height)
 
-  ctx.fillStyle = '#f7f7f8'
+  ctx.fillStyle = '#0b1220'
   ctx.fillRect(0, 0, width, height)
 
   const tl = worldToScreen(0, 0)
   const mapW = bounds.width * view.scale
   const mapH = bounds.height * view.scale
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+  ctx.fillStyle = 'rgba(148, 163, 184, 0.06)'
   ctx.fillRect(tl.sx, tl.sy, mapW, mapH)
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.18)'
+  ctx.strokeStyle = 'rgba(59, 130, 246, 0.28)'
   ctx.lineWidth = 2
   ctx.strokeRect(tl.sx, tl.sy, mapW, mapH)
-  ctx.fillStyle = 'rgba(20, 20, 25, 0.55)'
+  ctx.fillStyle = 'rgba(148, 163, 184, 0.85)'
   ctx.font = '14px Segoe UI, Arial'
   ctx.fillText('地图平面区域（待接入你的 2D 渲染）', tl.sx + 18, tl.sy + 28)
 
   if (showGrid.value) {
     const step = 100
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)'
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)'
     ctx.lineWidth = 1
     for (let x = -step; x <= bounds.width + step; x += step) {
       const p = worldToScreen(x, 0)
@@ -315,13 +328,13 @@ function render() {
     ctx.globalAlpha = 1
   }
 
-  if (hoverWorld.value && mode.value === 'inspect') drawCross(hoverWorld.value.x, hoverWorld.value.y, '#666', 0.7)
-  if (selectedWorld.value) drawCross(selectedWorld.value.x, selectedWorld.value.y, '#e53e3e', 0.9)
+  if (hoverWorld.value && mode.value === 'inspect') drawCross(hoverWorld.value.x, hoverWorld.value.y, '#94a3b8', 0.7)
+  if (selectedWorld.value) drawCross(selectedWorld.value.x, selectedWorld.value.y, '#ef4444', 0.9)
 
   for (const m of markers.value) {
     const p = worldToScreen(m.x, m.y)
     const isActive = m.id === activeMarkerId.value
-    ctx.fillStyle = isActive ? '#e53e3e' : '#3182ce'
+    ctx.fillStyle = isActive ? '#ef4444' : '#3b82f6'
     ctx.strokeStyle = '#ffffff'
     ctx.lineWidth = 3
     ctx.beginPath()
@@ -329,7 +342,7 @@ function render() {
     ctx.fill()
     ctx.stroke()
     if (isActive) {
-      ctx.fillStyle = 'rgba(20, 20, 25, 0.9)'
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.92)'
       ctx.font = '12px Segoe UI, Arial'
       ctx.textAlign = 'left'
       ctx.fillText(m.label, p.sx + 10, p.sy - 10)
@@ -411,7 +424,7 @@ function onPointerUp(e: PointerEvent) {
     activeMarkerId.value = id
     selectedWorld.value = { x: clamped.x, y: clamped.y }
     scheduleRender()
-    return
+return
   }
 
   const hit = findMarkerAtScreen(pos.sx, pos.sy)
@@ -511,14 +524,14 @@ onUnmounted(() => {
   box-sizing: border-box;
   font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
-.gm-page {
+.game-map-page {
   min-height: 100vh;
-  background: #f8f9fa;
-  color: #111;
+  background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+  color: #e5e7eb;
 }
 .container {
   width: 100%;
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
@@ -604,7 +617,7 @@ onUnmounted(() => {
   color: #e53e3e;
 }
 .gm-main {
-  padding: 2rem 0 2.5rem;
+  padding: 2rem 0 4rem;
 }
 .gm-workspace {
   display: grid;
@@ -629,18 +642,18 @@ onUnmounted(() => {
 .gm-mode-btn {
   padding: 0.65rem 1.05rem;
   border-radius: 10px;
-  border: 1px solid #e8e8e8;
-  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #0b1220;
   cursor: pointer;
-  color: #555;
+  color: #e5e7eb;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
 }
 .gm-mode-btn.active {
-  border-color: #e53e3e;
-  background: #e53e3e;
+  border-color: rgba(59, 130, 246, 0.7);
+  background: #3b82f6;
   color: #fff;
 }
 .gm-toolbar-right {
@@ -653,9 +666,9 @@ onUnmounted(() => {
 .gm-scale-pill {
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
-  background: #fff;
-  border: 1px solid #eee;
-  color: #666;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
   font-size: 0.92rem;
   display: flex;
   gap: 0.5rem;
@@ -665,14 +678,14 @@ onUnmounted(() => {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  border: 1px solid #eee;
-  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #0b1220;
   cursor: pointer;
-  color: #666;
+  color: #cbd5e1;
 }
 .gm-icon-btn:hover:not(:disabled) {
-  border-color: #e53e3e;
-  color: #e53e3e;
+  border-color: rgba(59, 130, 246, 0.7);
+  color: #3b82f6;
 }
 .gm-icon-btn:disabled {
   opacity: 0.55;
@@ -684,23 +697,24 @@ onUnmounted(() => {
   gap: 0.55rem;
   padding: 0.35rem 0.6rem;
   border-radius: 999px;
-  background: #fff;
-  border: 1px solid #eee;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.25);
   cursor: pointer;
-  color: #666;
+  color: #cbd5e1;
   font-weight: 700;
 }
 .gm-canvas-wrap {
   position: relative;
-  background: #fff;
-  border: 1px solid #eee;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 14px;
   overflow: hidden;
-  min-height: 620px;
+  height: 640px; /* 修改为固定高度 */
+  max-height: 640px; /* 添加最大高度限制 */
 }
 .gm-canvas {
   width: 100%;
-  height: 640px;
+  height: 100%; /* 修改为100%填充容器 */
   touch-action: none;
   display: block;
 }
@@ -713,28 +727,28 @@ onUnmounted(() => {
   position: absolute;
   left: 14px;
   top: 14px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid #eee;
+  background: rgba(2, 6, 23, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 12px;
   padding: 0.65rem 0.85rem;
   font-size: 0.92rem;
-  color: #333;
+  color: #e5e7eb;
 }
 .gm-selected {
   position: absolute;
   right: 14px;
   top: 14px;
-  background: rgba(229, 62, 62, 0.08);
-  border: 1px solid rgba(229, 62, 62, 0.22);
+  background: rgba(239, 68, 68, 0.09);
+  border: 1px solid rgba(239, 68, 68, 0.24);
   border-radius: 12px;
   padding: 0.6rem 0.85rem;
-  color: #b83232;
+  color: #fecaca;
   font-weight: 800;
   font-size: 0.92rem;
 }
 .gm-hint {
   margin-top: 0.8rem;
-  color: #666;
+  color: #94a3b8;
   font-size: 0.95rem;
 }
 .gm-side {
@@ -743,14 +757,14 @@ onUnmounted(() => {
   gap: 1rem;
 }
 .gm-card {
-  background: #fff;
-  border: 1px solid #eee;
+  background: rgba(2, 6, 23, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 14px;
   padding: 1rem;
 }
 .gm-card-title {
   font-weight: 900;
-  color: #1a1a1a;
+  color: #f8fafc;
   margin-bottom: 0.8rem;
 }
 .gm-card-title-row {
@@ -764,8 +778,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.55rem 0;
-  border-top: 1px dashed #f1f1f1;
-  color: #666;
+  border-top: 1px dashed rgba(148, 163, 184, 0.18);
+  color: #94a3b8;
   gap: 0.8rem;
 }
 .gm-row:first-of-type {
@@ -773,12 +787,12 @@ onUnmounted(() => {
   padding-top: 0;
 }
 .gm-row b {
-  color: #1a1a1a;
+  color: #f1f5f9;
   font-weight: 900;
 }
 .gm-empty {
   padding: 0.6rem 0.2rem;
-  color: #666;
+  color: #94a3b8;
 }
 .gm-marker-list {
   display: flex;
@@ -795,24 +809,24 @@ onUnmounted(() => {
   text-align: left;
   padding: 0.6rem 0.75rem;
   border-radius: 10px;
-  border: 1px solid #eee;
-  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: #0b1220;
   cursor: pointer;
   font-weight: 800;
 }
 .gm-marker-pick:hover {
-  background: #fafafa;
+  background: rgba(59, 130, 246, 0.12);
 }
 .gm-marker-pick.active {
-  border-color: rgba(229, 62, 62, 0.45);
-  background: rgba(229, 62, 62, 0.08);
-  color: #b83232;
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.08);
+  color: #fecaca;
 }
 .gm-marker-del {
   border-radius: 10px;
-  border: 1px solid rgba(229, 62, 62, 0.25);
-  background: rgba(229, 62, 62, 0.08);
-  color: #b83232;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+  color: #fecaca;
   cursor: pointer;
   padding: 0.55rem 0.7rem;
   font-weight: 900;
@@ -820,7 +834,7 @@ onUnmounted(() => {
 .gm-link-btn {
   border: 0;
   background: transparent;
-  color: #e53e3e;
+  color: #3b82f6;
   font-weight: 900;
   cursor: pointer;
 }
@@ -830,7 +844,7 @@ onUnmounted(() => {
 }
 .gm-edit {
   margin-top: 1rem;
-  border-top: 1px dashed #f1f1f1;
+  border-top: 1px dashed rgba(148, 163, 184, 0.22);
   padding-top: 0.9rem;
 }
 .gm-edit-title {
@@ -846,22 +860,26 @@ onUnmounted(() => {
   margin-top: 0;
 }
 .gm-field span {
-  color: #666;
+  color: #94a3b8;
   font-weight: 700;
 }
 .gm-input {
-  border: 1px solid #eee;
+  border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 10px;
   padding: 0.65rem 0.75rem;
   outline: none;
   font-size: 0.95rem;
+  background: #0b1220;
+  color: #e5e7eb;
 }
 .gm-textarea {
-  border: 1px solid #eee;
+  border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 10px;
   padding: 0.65rem 0.75rem;
   outline: none;
   resize: vertical;
+  background: #0b1220;
+  color: #e5e7eb;
 }
 .page-footer {
   background: #1a1a1a;
@@ -892,3 +910,27 @@ onUnmounted(() => {
   }
 }
 </style>
+
+function resizeCanvas() {
+  const canvas = canvasRef.value
+  const area = canvasAreaRef.value
+  if (!canvas || !area) return
+  
+  const rect = area.getBoundingClientRect()
+  // 使用容器实际高度，但限制最大高度
+  const w = Math.max(320, Math.min(rect.width, window.innerWidth - 100))
+  const h = Math.max(420, Math.min(rect.height, window.innerHeight - 200))
+  
+  dpr = window.devicePixelRatio || 1
+  canvas.style.width = `${w}px`
+  canvas.style.height = `${h}px`
+  canvas.width = Math.round(w * dpr)
+  canvas.height = Math.round(h * dpr)
+  
+  if (!initDone) {
+    initDone = true
+    centerMap()
+  } else if (!hasUserInteracted) {
+    centerMap()
+  }
+}
