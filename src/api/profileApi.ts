@@ -1,15 +1,16 @@
-import { apiRequest } from './apiClient'
+import { apiRequest } from './request'
+import { API_ENDPOINTS } from './endpoints'
 import type { Profile } from '../types/profile'
 
 export const profileApi = {
   async getProfile(): Promise<Profile> {
-    return apiRequest<Profile>({ method: 'GET', path: '/profile', auth: true })
+    return apiRequest<Profile>({ method: 'GET', path: API_ENDPOINTS.profile.detail, auth: true })
   },
 
   async updateProfile(payload: Partial<Profile>): Promise<Profile> {
     return apiRequest<Profile>({
       method: 'PUT',
-      path: '/profile',
+      path: API_ENDPOINTS.profile.detail,
       auth: true,
       body: payload
     })

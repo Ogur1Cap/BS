@@ -230,7 +230,7 @@ const handleNotificationClick = (notification: Notification) => {
   if (notification.type === 'order' && notification.relatedId) {
     router.push(`/orders/${notification.relatedId}`);
   } else if (notification.type === 'message' && notification.relatedId) {
-    router.push(`/messages/${notification.relatedId}`);
+    router.push('/notifications');
   } else if (notification.type === 'system') {
     router.push('/notifications');
   }

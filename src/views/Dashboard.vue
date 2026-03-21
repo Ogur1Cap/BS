@@ -59,7 +59,7 @@
             <h2 class="section-title">
               <i class="fa fa-gamepad"></i> 热门游戏
             </h2>
-            <router-link to="/games" class="see-more">查看全部</router-link>
+            <router-link to="/play-hall" class="see-more">查看全部</router-link>
           </div>
           <div class="games-carousel">
             <GameCard 
@@ -87,9 +87,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Order } from '../components/Dashboard/OrderTable.vue';
+import { ordersApi } from '../api/ordersApi';
+import { GAME_LIST } from '../constants/games';
 
 // 导入组件
 import Header from '../layouts/Header.vue';
@@ -107,69 +109,23 @@ const router = useRouter();
 const currentUser = ref<{ username: string } | undefined>(undefined);
 const userAvatar = ref('https://picsum.photos/id/237/200/200'); // 默认头像
 const userLevel = ref('白银会员');
-const completedOrders = ref(12);
-const ongoingOrders = ref(2);
+const completedOrders = computed(() => recentOrders.value.filter((order) => order.status === 'completed').length);
+const ongoingOrders = computed(() => recentOrders.value.filter((order) => order.status === 'ongoing').length);
 const unreadNotifications = ref(3);
 
 // 热门游戏数据
-const popularGames = ref([
-  {
-    id: 1,
-    name: '三角洲行动',
-    imageUrl: 'https://picsum.photos/id/237/400/200',
-    players: 1243,
-    rating: 4.8
-  },
-  {
-    id: 2,
-    name: '绝地求生',
-    imageUrl: 'https://picsum.photos/id/238/400/200',
-    players: 987,
-    rating: 4.6
-  },
-  {
-    id: 3,
-    name: '使命召唤',
-    imageUrl: 'https://picsum.photos/id/239/400/200',
-    players: 756,
-    rating: 4.7
-  },
-  {
-    id: 4,
-    name: 'Apex英雄',
-    imageUrl: 'https://picsum.photos/id/240/400/200',
-    players: 632,
-    rating: 4.5
-  }
-]);
+const popularGames = ref(
+  GAME_LIST.map((game, index) => ({
+    id: game.id,
+    name: game.name,
+    imageUrl: game.imageUrl,
+    players: 1243 - index * 165,
+    rating: 4.8 - index * 0.1
+  }))
+);
 
 // 明确指定recentOrders的类型为Order[]
-const recentOrders = ref<Order[]>([
-  {
-    id: 'ORD-87621',
-    game: '三角洲行动',
-    serviceType: '全程护航',
-    status: 'completed', // 符合Order接口的status类型
-    statusText: '已完成',
-    date: '2023-10-15T14:30:00'
-  },
-  {
-    id: 'ORD-87542',
-    game: '绝地求生',
-    serviceType: '段位提升',
-    status: 'ongoing', // 符合Order接口的status类型
-    statusText: '进行中',
-    date: '2023-10-16T09:15:00'
-  },
-  {
-    id: 'ORD-87459',
-    game: '使命召唤',
-    serviceType: '任务代练',
-    status: 'completed', // 符合Order接口的status类型
-    statusText: '已完成',
-    date: '2023-10-12T19:45:00'
-  }
-]);
+const recentOrders = ref<Order[]>([]);
 
 // 处理登出
 const handleLogout = () => {
@@ -193,6 +149,24 @@ onMounted(() => {
     // 如果没有用户信息，跳转到登录页
     router.push('/login');
   }
+
+  ordersApi
+    .listOrders()
+    .then((items) => {
+      recentOrders.value = items
+        .slice(0, 5)
+        .map((item) => ({
+          id: item.id,
+          game: item.game,
+          serviceType: item.serviceType,
+          status: item.status,
+          statusText: item.statusText,
+          date: item.createdAt
+        }));
+    })
+    .catch(() => {
+      recentOrders.value = [];
+    });
 });
 </script>
 

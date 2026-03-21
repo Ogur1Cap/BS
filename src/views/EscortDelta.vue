@@ -180,7 +180,7 @@
         </div>
         
         <div class="view-all-players">
-          <router-link to="/players" class="link">查看全部打手 <i class="fa fa-chevron-right ml-1"></i></router-link>
+          <router-link to="/play-hall" class="link">查看全部打手 <i class="fa fa-chevron-right ml-1"></i></router-link>
         </div>
       </div>
     </section>
@@ -502,10 +502,17 @@ const scrollToPlayers = () => {
 
 // 提交订单
 const submitOrder = () => {
-  // 实际项目中这里会调用API提交订单
-  console.log('提交订单:', formData.value);
-  alert('订单提交成功！我们将尽快为您安排专业打手提供护航服务。');
-  router.push('/orders');
+  // 护航页作为服务介绍入口，统一跳转到订单页完成创建，避免多入口逻辑分裂
+  router.push({
+    path: '/orders',
+    query: {
+      create: '1',
+      gameKey: 'delta',
+      serviceKey: formData.value.serviceType || selectedService.value || 'fullEscort',
+      playerId: formData.value.playerId || undefined,
+      source: 'escort'
+    }
+  });
 };
 
 // 处理登出

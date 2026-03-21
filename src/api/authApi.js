@@ -1,9 +1,10 @@
-import { apiRequest } from './apiClient';
+import { apiRequest } from './request';
+import { API_ENDPOINTS } from './endpoints';
 export const authApi = {
     async login(payload) {
         return apiRequest({
             method: 'POST',
-            path: '/auth/login',
+            path: API_ENDPOINTS.auth.login,
             body: payload,
             auth: false
         });
@@ -11,7 +12,7 @@ export const authApi = {
     async register(payload) {
         return apiRequest({
             method: 'POST',
-            path: '/auth/register',
+            path: API_ENDPOINTS.auth.register,
             body: payload,
             auth: false
         });

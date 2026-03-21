@@ -56,9 +56,33 @@ export async function mockRequest(options) {
         const res = mockDb.orders.list();
         return res;
     }
+    if (method === 'POST' && path === '/orders') {
+        const payload = assertBody(options.body);
+        const res = mockDb.orders.create(payload);
+        return res;
+    }
     if (method === 'POST' && path.endsWith('/cancel') && path.startsWith('/orders/')) {
         const orderId = decodeURIComponent(path.split('/')[2] || '');
         const res = mockDb.orders.cancel(orderId);
+        return res;
+    }
+    if (method === 'GET' && path.startsWith('/orders/')) {
+        const orderId = decodeURIComponent(path.split('/')[2] || '');
+        const res = mockDb.orders.detail(orderId);
+        if (!res)
+            throw new Error(`Order not found: ${orderId}`);
+        return res;
+    }
+    if (method === 'POST' && path.endsWith('/reschedule') && path.startsWith('/orders/')) {
+        const orderId = decodeURIComponent(path.split('/')[2] || '');
+        const body = assertBody(options.body);
+        const res = mockDb.orders.reschedule(orderId, body.startTime);
+        return res;
+    }
+    if (method === 'POST' && path.endsWith('/refund') && path.startsWith('/orders/')) {
+        const orderId = decodeURIComponent(path.split('/')[2] || '');
+        const body = assertBody(options.body);
+        const res = mockDb.orders.refund(orderId, body.reason);
         return res;
     }
     // profile

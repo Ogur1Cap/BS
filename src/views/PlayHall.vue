@@ -84,7 +84,7 @@
       <div class="container">
         <!-- 筛选结果提示 -->
         <div class="result-tip">
-          找到 <span class="highlight">{{ filteredPlayers.length }}</span> 位符合条件的专业打手
+          找到 <span class="highlight">{{ matchedPlayers.length }}</span> 位符合条件的专业打手
         </div>
 
         <!-- 打手卡片网格 -->
@@ -357,32 +357,9 @@ const allPlayers = ref<Player[]>([
 
 // —— 计算属性：筛选+排序后的打手列表 ——
 const filteredPlayers = computed<Player[]>(() => {
-  let result = [...allPlayers.value];
+  let result = [...matchedPlayers.value];
 
-  // 1. 段位筛选
-  if (selectedRank.value) {
-    result = result.filter(player => player.rank === selectedRank.value);
-  }
-
-  // 2. 擅长领域筛选（包含任一选中领域即可）
-  if (selectedSkill.value) {
-    // 映射筛选值到中文领域（如"tactical" → "战术指挥"）
-    const targetSkill = skillMap[selectedSkill.value];
-    result = result.filter(player => player.skills.includes(targetSkill));
-  }
-
-  // 3. 价格范围筛选
-  if (selectedPriceRange.value) {
-    const [minPrice, maxPrice] = selectedPriceRange.value.split('-');
-    result = result.filter(player => {
-      if (maxPrice === '+') {
-        return player.pricePerHour >= Number(minPrice);
-      }
-      return player.pricePerHour >= Number(minPrice) && player.pricePerHour <= Number(maxPrice);
-    });
-  }
-
-  // 4. 排序
+  // 排序
   switch (sortType.value) {
     case 'winRate':
       result.sort((a, b) => b.winRate - a.winRate); // 胜率从高到低
@@ -400,32 +377,32 @@ const filteredPlayers = computed<Player[]>(() => {
       result.sort((a, b) => b.rating - a.rating); // 默认评分优先
   }
 
-  // 5. 分页处理
+  // 分页处理
   const startIndex = (currentPage.value - 1) * pageSize.value;
   const endIndex = startIndex + pageSize.value;
   return result.slice(startIndex, endIndex);
 });
 
-// 总页数
-const totalPages = computed(() => {
-  const filteredTotal = allPlayers.value.filter(player => {
-    // 复制筛选逻辑（计算总数量）
+const matchedPlayers = computed<Player[]>(() => {
+  return allPlayers.value.filter((player) => {
     const rankMatch = !selectedRank.value || player.rank === selectedRank.value;
-    const skillMatch = !selectedSkill.value 
-      ? true 
+    const skillMatch = !selectedSkill.value
+      ? true
       : player.skills.includes(skillMap[selectedSkill.value]);
-    const priceMatch = !selectedPriceRange.value 
-      ? true 
+    const priceMatch = !selectedPriceRange.value
+      ? true
       : (() => {
           const [min, max] = selectedPriceRange.value.split('-');
-          return max === '+' 
-            ? player.pricePerHour >= Number(min) 
+          return max === '+'
+            ? player.pricePerHour >= Number(min)
             : player.pricePerHour >= Number(min) && player.pricePerHour <= Number(max);
         })();
     return rankMatch && skillMatch && priceMatch;
-  }).length;
-  return Math.ceil(filteredTotal / pageSize.value);
+  });
 });
+
+// 总页数
+const totalPages = computed(() => Math.max(1, Math.ceil(matchedPlayers.value.length / pageSize.value)));
 
 // —— 方法 ——
 // 筛选条件变化（重置页码）
@@ -450,14 +427,17 @@ const resetFilters = () => {
 // 预约打手（跳转至下单页，携带打手ID）
 const handleBookPlayer = (playerId: string) => {
   router.push({
-    path: '/escort/order',
-    query: { playerId } // 携带打手ID到下单页
+    path: '/orders',
+    query: { create: '1', gameKey: 'delta', serviceKey: 'fullEscort', playerId, source: 'play-hall' }
   });
 };
 
 // 查看打手详情
 const handleViewPlayerDetail = (playerId: string) => {
-  router.push(`/player/detail/${playerId}`);
+  router.push({
+    path: '/orders',
+    query: { create: '1', gameKey: 'delta', playerId, source: 'play-hall' }
+  });
 };
 
 // 处理登出

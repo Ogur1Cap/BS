@@ -3,6 +3,7 @@
 // 环境变量类型定义
 interface ImportMetaEnv {
   readonly VITE_APP_TITLE: string
+  readonly VITE_API_MODE: 'mock' | 'real'
   readonly VITE_API_BASE_URL: string
   // 更多环境变量...
 }

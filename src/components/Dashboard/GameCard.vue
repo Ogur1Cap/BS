@@ -15,12 +15,13 @@
         <span class="rating-value">{{ game.rating }}</span>
       </div>
     </div>
-    <router-link :to="'/escort?gameId=' + game.id" class="book-button">立即预约</router-link>
+    <router-link :to="`/orders?create=1&gameKey=${resolveGameKey(game.name)}&serviceKey=fullEscort&source=dashboard`" class="book-button">立即预约</router-link>
   </div>
 </template>
 
 <script setup lang="ts">
 import { defineProps } from 'vue';
+import { getGameByName } from '../../constants/games';
 
 // 定义游戏数据类型
 interface Game {
@@ -38,6 +39,10 @@ const props = defineProps({
     required: true
   }
 });
+
+const resolveGameKey = (gameName: string) => {
+  return getGameByName(gameName)?.key || 'delta';
+};
 </script>
 
 <style scoped>

@@ -1,12 +1,13 @@
-import { apiRequest } from './apiClient';
+import { apiRequest } from './request';
+import { API_ENDPOINTS } from './endpoints';
 export const profileApi = {
     async getProfile() {
-        return apiRequest({ method: 'GET', path: '/profile', auth: true });
+        return apiRequest({ method: 'GET', path: API_ENDPOINTS.profile.detail, auth: true });
     },
     async updateProfile(payload) {
         return apiRequest({
             method: 'PUT',
-            path: '/profile',
+            path: API_ENDPOINTS.profile.detail,
             auth: true,
             body: payload
         });

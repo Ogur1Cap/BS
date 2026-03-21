@@ -1,61 +1,65 @@
 <template>
   <div class="game-map-page">
     <Header :current-user="currentUser" :user-avatar="userAvatar" @logout="handleLogout" />
-    <header v-if="false" class="page-header">
-      <div class="container">
-        <div class="header-content">
-          <div class="logo">
-            <i class="fa fa-crosshairs"></i>
-            <span>三角洲行动 - 地图交互</span>
-          </div>
-          <nav class="main-nav">
-            <a href="/" class="nav-link">首页</a>
-            <a href="/map" class="nav-link active">地图</a>
-            <a href="/strategy" class="nav-link">攻略合集</a>
-          </nav>
-          <div class="user-info">
-            <img :src="userAvatar" class="user-avatar" alt="用户头像" @click="toggleUserMenu" />
-            <div v-if="showUserMenu" class="user-menu">
-              <a href="/profile">个人中心</a>
-              <a href="/collection">我的收藏</a>
-              <a href="#" @click.prevent="handleLogout">退出登录</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
 
     <main class="gm-main">
-      <section class="gm-workspace">
+      <section class="gm-workspace container">
         <div class="gm-map-col">
-          <div class="gm-toolbar">
-            <div class="gm-modes">
-              <button class="gm-mode-btn" :class="{ active: mode === 'inspect' }" @click="mode = 'inspect'">
-                <i class="fa fa-eye"></i> 查看/选点
-              </button>
-              <button class="gm-mode-btn" :class="{ active: mode === 'mark' }" @click="mode = 'mark'">
-                <i class="fa fa-flag"></i> 添加标记
-              </button>
+          <div class="gm-toolbar gm-card">
+            <div class="gm-toolbar-group">
+              <div class="gm-title">零号大坝地图工具</div>
+              <div class="gm-subtitle">分层查看 / 快速定位 / 点位过滤</div>
             </div>
-
             <div class="gm-toolbar-right">
               <div class="gm-scale-pill">
                 <span>缩放</span>
                 <b>{{ Math.round(view.scale * 100) }}%</b>
               </div>
-              <button class="gm-icon-btn" :disabled="view.scale <= minScale" @click="adjustZoom(1)">
+              <button class="gm-icon-btn" :disabled="view.scale >= maxScale" @click="adjustZoom(1)" title="放大">
                 <i class="fa fa-search-plus"></i>
               </button>
-              <button class="gm-icon-btn" :disabled="view.scale >= maxScale" @click="adjustZoom(-1)">
+              <button class="gm-icon-btn" :disabled="view.scale <= minScale" @click="adjustZoom(-1)" title="缩小">
                 <i class="fa fa-search-minus"></i>
               </button>
-              <button class="gm-icon-btn" @click="resetView">
+              <button class="gm-icon-btn" @click="resetView" title="重置视角">
                 <i class="fa fa-crosshairs"></i>
               </button>
-              <label class="gm-switch">
-                <input type="checkbox" v-model="showGrid" />
-                <span>网格</span>
-              </label>
+            </div>
+          </div>
+
+          <div class="gm-tabs-row">
+            <div class="gm-tab-wrap">
+              <button
+                v-for="tab in modeTabs"
+                :key="tab.value"
+                class="gm-tab-btn"
+                :class="{ active: selectedMapMode === tab.value }"
+                @click="selectedMapMode = tab.value"
+              >
+                {{ tab.label }}
+              </button>
+            </div>
+            <div class="gm-tab-wrap">
+              <button
+                v-for="level in securityLevels"
+                :key="level.value"
+                class="gm-tab-btn gm-tab-btn-small"
+                :class="{ active: selectedSecurity === level.value }"
+                @click="selectedSecurity = level.value"
+              >
+                {{ level.label }}
+              </button>
+            </div>
+            <div class="gm-floor-wrap">
+              <button
+                v-for="f in floorOptions"
+                :key="f.value"
+                class="gm-floor-btn"
+                :class="{ active: selectedFloor === f.value }"
+                @click="selectedFloor = f.value"
+              >
+                {{ f.label }}
+              </button>
             </div>
           </div>
 
@@ -70,58 +74,95 @@
               @pointercancel="onPointerUp"
               @mouseleave="onPointerLeave"
             />
-
             <div class="gm-overlay">
               <div v-if="hoverWorld" class="gm-readout">
-                世界：({{ fmt(hoverWorld.x) }}, {{ fmt(hoverWorld.y) }})
+                坐标：({{ fmt(hoverWorld.x) }}, {{ fmt(hoverWorld.y) }})
               </div>
-              <div v-if="selectedWorld" class="gm-selected">
-                已选：({{ fmt(selectedWorld.x) }}, {{ fmt(selectedWorld.y) }})
+              <div class="gm-selected">
+                楼层：{{ selectedFloorLabel }} | 显示点位：{{ visiblePois.length }}
               </div>
             </div>
           </div>
-
-          <div class="gm-hint">左键拖拽平移；滚轮缩放；“添加标记”后点击地图落点。</div>
+          <div class="gm-hint">左键拖拽平移，滚轮缩放；“添加标记”模式可在地图上落点。</div>
         </div>
 
         <aside class="gm-side">
           <div class="gm-card">
-            <div class="gm-card-title">点位信息</div>
+            <div class="gm-card-title">快速定位</div>
+            <div class="gm-search">
+              <input
+                v-model.trim="searchKeyword"
+                class="gm-input"
+                type="text"
+                placeholder="输入点位名，例如 行政补给站"
+                @keyup.enter="jumpToFirstSearchPoi"
+              />
+              <button class="gm-link-btn" :disabled="!searchResultPois.length" @click="jumpToFirstSearchPoi">定位</button>
+            </div>
+            <div class="gm-empty" v-if="searchKeyword && !searchResultPois.length">未找到匹配点位</div>
+            <div class="gm-list" v-if="searchResultPois.length">
+              <button
+                v-for="poi in searchResultPois.slice(0, 6)"
+                :key="poi.id"
+                class="gm-item-btn"
+                @click="jumpToPoi(poi)"
+              >
+                {{ poi.name }}
+              </button>
+            </div>
+          </div>
+
+          <div class="gm-card">
+            <div class="gm-card-title">地图图层</div>
+            <label class="gm-switch-line">
+              <input type="checkbox" v-model="showGrid" />
+              <span>显示网格</span>
+            </label>
+            <label class="gm-switch-line">
+              <input type="checkbox" v-model="showOfficialPois" />
+              <span>显示官方点位</span>
+            </label>
+            <label class="gm-switch-line">
+              <input type="checkbox" v-model="showCustomMarkers" />
+              <span>显示自定义标记</span>
+            </label>
+            <label class="gm-switch-line">
+              <input type="checkbox" v-model="eventEnabled" />
+              <span>开启随机事件预览</span>
+            </label>
+          </div>
+
+          <div class="gm-card">
+            <div class="gm-card-title">交互模式</div>
+            <div class="gm-tab-wrap">
+              <button class="gm-tab-btn gm-tab-btn-small" :class="{ active: mode === 'inspect' }" @click="mode = 'inspect'">查看/选点</button>
+              <button class="gm-tab-btn gm-tab-btn-small" :class="{ active: mode === 'mark' }" @click="mode = 'mark'">添加标记</button>
+            </div>
             <div class="gm-row">
-              <span>缩放</span>
-              <b>{{ Math.round(view.scale * 100) }}%</b>
+              <span>当前事件</span>
+              <b>{{ activeEventLabel }}</b>
             </div>
-            <div class="gm-row" v-if="selectedWorld">
-              <span>坐标</span>
-              <b>{{ fmt(selectedWorld.x) }}, {{ fmt(selectedWorld.y) }}</b>
-            </div>
-            <div class="gm-row" v-else>
-              <span>坐标</span>
-              <b>未选择</b>
+            <div class="gm-row">
+              <span>当前坐标</span>
+              <b>{{ selectedWorld ? `${fmt(selectedWorld.x)}, ${fmt(selectedWorld.y)}` : '未选择' }}</b>
             </div>
           </div>
 
           <div class="gm-card">
             <div class="gm-card-title gm-card-title-row">
-              <span>标记列表</span>
-              <button class="gm-link-btn" :disabled="markers.length === 0" @click="clearMarkers">
-                清空
-              </button>
+              <span>我的标记</span>
+              <button class="gm-link-btn" :disabled="markers.length === 0" @click="clearMarkers">清空</button>
             </div>
-
-            <div v-if="markers.length === 0" class="gm-empty">暂无标记。</div>
-
-            <div v-else class="gm-marker-list">
-              <div v-for="m in markers" :key="m.id" class="gm-marker-item">
-                <button class="gm-marker-pick" :class="{ active: m.id === activeMarkerId }" @click="selectMarker(m.id)">
+            <div v-if="markers.length === 0" class="gm-empty">暂无标记</div>
+            <div v-else class="gm-list">
+              <div class="gm-marker-item" v-for="m in markers" :key="m.id">
+                <button class="gm-item-btn" :class="{ active: m.id === activeMarkerId }" @click="selectMarker(m.id)">
                   {{ m.label }}
                 </button>
-                <button class="gm-marker-del" @click="deleteMarker(m.id)">删除</button>
+                <button class="gm-del-btn" @click="deleteMarker(m.id)">删</button>
               </div>
             </div>
-
             <div v-if="activeMarker" class="gm-edit">
-              <div class="gm-edit-title">编辑标记</div>
               <label class="gm-field">
                 <span>名称</span>
                 <input v-model="activeMarker.label" class="gm-input" />
@@ -135,18 +176,6 @@
         </aside>
       </section>
     </main>
-
-    <footer v-if="false" class="page-footer">
-      <div class="container">
-        <div class="footer-content">
-          <div class="footer-logo">
-            <i class="fa fa-crosshairs"></i>
-            <span>三角洲行动地图库</span>
-          </div>
-          <div class="copyright">© 2025 三角洲行动地图库 版权所有 | 基于项目 BS 开发</div>
-        </div>
-      </div>
-    </footer>
     <Footer />
   </div>
 </template>
@@ -156,12 +185,124 @@ import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from
 import { useRouter } from 'vue-router'
 import Header from '../layouts/Header.vue'
 import Footer from '../layouts/Footer.vue'
+import zeroMap from '../image/Zero.jpeg'
+
+type DrawMode = 'inspect' | 'mark'
+type SceneMode = 'normal' | 'attack' | 'occupy'
+type Security = 'normal' | 'secret' | 'top-secret'
+type Floor = 1 | 2 | 3 | 4
+type EventKey = 'none' | 'crash' | 'bridge' | 'fire'
+type PoiType = 'resource' | 'spawn' | 'extract' | 'boss' | 'vehicle'
+type Marker = { id: string; x: number; y: number; label: string; note: string }
+type Poi = {
+  id: string
+  name: string
+  x: number
+  y: number
+  floor: Floor
+  type: PoiType
+  modes: SceneMode[]
+  security: Security[]
+}
 
 const router = useRouter()
 const currentUser = ref<{ username?: string; avatar?: string }>({ username: '' })
 const userAvatar = ref('https://picsum.photos/id/237/200/200')
-const showUserMenu = ref(false)
-const toggleUserMenu = () => (showUserMenu.value = !showUserMenu.value)
+
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const canvasAreaRef = ref<HTMLDivElement | null>(null)
+const mapImage = new Image()
+mapImage.src = zeroMap
+
+const bounds = reactive({ width: 1800, height: 1200 })
+const minScale = 0.35
+const maxScale = 4
+const view = reactive({ scale: 1, offsetX: 0, offsetY: 0 })
+const mode = ref<DrawMode>('inspect')
+const showGrid = ref(true)
+const showOfficialPois = ref(true)
+const showCustomMarkers = ref(true)
+const eventEnabled = ref(false)
+
+const selectedMapMode = ref<SceneMode>('normal')
+const selectedSecurity = ref<Security>('normal')
+const selectedFloor = ref<Floor>(1)
+const selectedWorld = ref<{ x: number; y: number } | null>(null)
+const hoverWorld = ref<{ x: number; y: number } | null>(null)
+const searchKeyword = ref('')
+
+const modeTabs = [
+  { value: 'normal', label: '常规' },
+  { value: 'attack', label: '攻防' },
+  { value: 'occupy', label: '占领' }
+] as const
+const securityLevels = [
+  { value: 'normal', label: '常规' },
+  { value: 'secret', label: '机密' },
+  { value: 'top-secret', label: '绝密' }
+] as const
+const floorOptions = [
+  { value: 1, label: '1F' },
+  { value: 2, label: '2F' },
+  { value: 3, label: '3F' },
+  { value: 4, label: '4F' }
+] as const
+
+const allPois = ref<Poi[]>([
+  { id: 'p1', name: '行政补给站', x: 360, y: 250, floor: 1, type: 'resource', modes: ['normal', 'attack'], security: ['normal', 'secret'] },
+  { id: 'p2', name: '观察塔出生点', x: 210, y: 780, floor: 1, type: 'spawn', modes: ['normal', 'occupy'], security: ['normal', 'secret', 'top-secret'] },
+  { id: 'p3', name: '下水道撤离点', x: 1460, y: 1020, floor: 1, type: 'extract', modes: ['normal'], security: ['normal', 'secret'] },
+  { id: 'p4', name: '博弈首领点', x: 1280, y: 420, floor: 2, type: 'boss', modes: ['attack'], security: ['secret', 'top-secret'] },
+  { id: 'p5', name: '装甲补给车位', x: 820, y: 680, floor: 2, type: 'vehicle', modes: ['occupy', 'attack'], security: ['normal', 'secret'] },
+  { id: 'p6', name: '指挥层资源箱', x: 970, y: 300, floor: 3, type: 'resource', modes: ['normal', 'attack'], security: ['secret', 'top-secret'] },
+  { id: 'p7', name: '顶层临时撤离', x: 1540, y: 190, floor: 4, type: 'extract', modes: ['occupy'], security: ['top-secret'] }
+])
+
+const markers = ref<Marker[]>([])
+const activeMarkerId = ref<string | null>(null)
+const activeMarker = computed(() => markers.value.find((m) => m.id === activeMarkerId.value) ?? null)
+
+const selectedFloorLabel = computed(() => floorOptions.find((f) => f.value === selectedFloor.value)?.label ?? '1F')
+const activeEvent = computed<EventKey>(() => {
+  if (!eventEnabled.value) return 'none'
+  const keyPool: EventKey[] = ['crash', 'bridge', 'fire']
+  const index = selectedFloor.value % keyPool.length
+  return keyPool[index]
+})
+const activeEventLabel = computed(() => {
+  const map: Record<EventKey, string> = {
+    none: '无',
+    crash: '坠机事件',
+    bridge: '断桥事件',
+    fire: '森林山火'
+  }
+  return map[activeEvent.value]
+})
+
+const visiblePois = computed(() => {
+  return allPois.value.filter((p) => {
+    return (
+      p.floor === selectedFloor.value &&
+      p.modes.includes(selectedMapMode.value) &&
+      p.security.includes(selectedSecurity.value)
+    )
+  })
+})
+const searchResultPois = computed(() => {
+  if (!searchKeyword.value) return visiblePois.value
+  const q = searchKeyword.value.toLowerCase()
+  return visiblePois.value.filter((p) => p.name.toLowerCase().includes(q))
+})
+
+const fmt = (n: number) => (Number.isFinite(n) ? n.toFixed(1) : '0.0')
+
+let resizeObserver: ResizeObserver | null = null
+let dpr = 1
+let initDone = false
+let hasUserInteracted = false
+let renderQueued = false
+
+const isAuthenticated = () => !!localStorage.getItem('delta_token') || !!sessionStorage.getItem('delta_token')
 const handleLogout = () => {
   localStorage.removeItem('delta_token')
   localStorage.removeItem('delta_user')
@@ -169,50 +310,6 @@ const handleLogout = () => {
   sessionStorage.removeItem('delta_user')
   router.push('/login')
 }
-
-const isAuthenticated = () =>
-  !!localStorage.getItem('delta_token') || !!sessionStorage.getItem('delta_token')
-
-onMounted(() => {
-  if (!isAuthenticated()) {
-    router.push('/login')
-    return
-  }
-
-  try {
-    const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user')
-    if (!userStr) return
-    const user = JSON.parse(userStr)
-    currentUser.value = user
-    userAvatar.value = user.avatar || userAvatar.value
-  } catch {
-    // ignore
-  }
-})
-
-type Marker = { id: string; x: number; y: number; label: string; note: string }
-
-const canvasRef = ref<HTMLCanvasElement | null>(null)
-const canvasAreaRef = ref<HTMLDivElement | null>(null)
-
-const bounds = reactive({ width: 1200, height: 800 })
-const minScale = 0.25
-const maxScale = 5
-const mode = ref<'inspect' | 'mark'>('inspect')
-const showGrid = ref(true)
-
-const view = reactive({ scale: 1, offsetX: 0, offsetY: 0 })
-const selectedWorld = ref<{ x: number; y: number } | null>(null)
-const hoverWorld = ref<{ x: number; y: number } | null>(null)
-
-const markers = ref<Marker[]>([])
-const activeMarkerId = ref<string | null>(null)
-const activeMarker = computed(() => {
-  if (!activeMarkerId.value) return null
-  return markers.value.find((m) => m.id === activeMarkerId.value) || null
-})
-
-const fmt = (n: number) => (Number.isFinite(n) ? n.toFixed(1) : '0.0')
 
 function clampWorld(wx: number, wy: number) {
   return { x: Math.min(bounds.width, Math.max(0, wx)), y: Math.min(bounds.height, Math.max(0, wy)) }
@@ -223,13 +320,6 @@ function worldToScreen(wx: number, wy: number) {
 function screenToWorld(sx: number, sy: number) {
   return { wx: (sx - view.offsetX) / view.scale, wy: (sy - view.offsetY) / view.scale }
 }
-
-let resizeObserver: ResizeObserver | null = null
-let dpr = 1
-let initDone = false
-let hasUserInteracted = false
-let renderQueued = false
-
 function scheduleRender() {
   if (renderQueued) return
   renderQueued = true
@@ -238,7 +328,6 @@ function scheduleRender() {
     render()
   })
 }
-
 function centerMap() {
   const el = canvasAreaRef.value
   if (!el) return
@@ -246,14 +335,13 @@ function centerMap() {
   view.offsetX = rect.width / 2 - (bounds.width * view.scale) / 2
   view.offsetY = rect.height / 2 - (bounds.height * view.scale) / 2
 }
-
 function resizeCanvas() {
   const canvas = canvasRef.value
   const area = canvasAreaRef.value
   if (!canvas || !area) return
   const rect = area.getBoundingClientRect()
   const w = Math.max(320, rect.width)
-  const h = Math.max(420, rect.height)
+  const h = Math.max(460, rect.height)
   dpr = window.devicePixelRatio || 1
   canvas.style.width = `${w}px`
   canvas.style.height = `${h}px`
@@ -266,7 +354,28 @@ function resizeCanvas() {
     centerMap()
   }
 }
-
+function drawGrid(ctx: CanvasRenderingContext2D, mapLeft: number, mapTop: number, mapW: number, mapH: number) {
+  if (!showGrid.value) return
+  const step = 120
+  ctx.save()
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)'
+  ctx.lineWidth = 1
+  for (let x = 0; x <= bounds.width; x += step) {
+    const p = worldToScreen(x, 0)
+    ctx.beginPath()
+    ctx.moveTo(p.sx, mapTop)
+    ctx.lineTo(p.sx, mapTop + mapH)
+    ctx.stroke()
+  }
+  for (let y = 0; y <= bounds.height; y += step) {
+    const p = worldToScreen(0, y)
+    ctx.beginPath()
+    ctx.moveTo(mapLeft, p.sy)
+    ctx.lineTo(mapLeft + mapW, p.sy)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
 function render() {
   const canvas = canvasRef.value
   if (!canvas) return
@@ -275,77 +384,78 @@ function render() {
 
   const width = canvas.clientWidth
   const height = canvas.clientHeight
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  ctx.clearRect(0, 0, width, height)
-
-  ctx.fillStyle = '#0b1220'
-  ctx.fillRect(0, 0, width, height)
-
-  const tl = worldToScreen(0, 0)
+  const mapLeft = view.offsetX
+  const mapTop = view.offsetY
   const mapW = bounds.width * view.scale
   const mapH = bounds.height * view.scale
 
-  ctx.fillStyle = 'rgba(148, 163, 184, 0.06)'
-  ctx.fillRect(tl.sx, tl.sy, mapW, mapH)
-  ctx.strokeStyle = 'rgba(59, 130, 246, 0.28)'
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.clearRect(0, 0, width, height)
+  ctx.fillStyle = '#0b1220'
+  ctx.fillRect(0, 0, width, height)
+
+  if (mapImage.complete) {
+    ctx.save()
+    ctx.globalAlpha = 0.92
+    ctx.drawImage(mapImage, mapLeft, mapTop, mapW, mapH)
+    ctx.restore()
+  } else {
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.06)'
+    ctx.fillRect(mapLeft, mapTop, mapW, mapH)
+  }
+
+  ctx.strokeStyle = 'rgba(59, 130, 246, 0.35)'
   ctx.lineWidth = 2
-  ctx.strokeRect(tl.sx, tl.sy, mapW, mapH)
-  ctx.fillStyle = 'rgba(148, 163, 184, 0.85)'
-  ctx.font = '14px Segoe UI, Arial'
-  ctx.fillText('地图平面区域（待接入你的 2D 渲染）', tl.sx + 18, tl.sy + 28)
+  ctx.strokeRect(mapLeft, mapTop, mapW, mapH)
+  drawGrid(ctx, mapLeft, mapTop, mapW, mapH)
 
-  if (showGrid.value) {
-    const step = 100
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)'
-    ctx.lineWidth = 1
-    for (let x = -step; x <= bounds.width + step; x += step) {
-      const p = worldToScreen(x, 0)
-      ctx.beginPath()
-      ctx.moveTo(p.sx, tl.sy)
-      ctx.lineTo(p.sx, tl.sy + mapH)
-      ctx.stroke()
+  if (eventEnabled.value) {
+    const eventTone: Record<EventKey, string> = {
+      none: 'transparent',
+      crash: 'rgba(249, 115, 22, 0.08)',
+      bridge: 'rgba(239, 68, 68, 0.08)',
+      fire: 'rgba(234, 179, 8, 0.08)'
     }
-    for (let y = -step; y <= bounds.height + step; y += step) {
-      const p = worldToScreen(0, y)
+    ctx.fillStyle = eventTone[activeEvent.value]
+    ctx.fillRect(mapLeft, mapTop, mapW, mapH)
+  }
+
+  if (showOfficialPois.value) {
+    for (const poi of visiblePois.value) {
+      const p = worldToScreen(poi.x, poi.y)
+      const colors: Record<PoiType, string> = {
+        resource: '#60a5fa',
+        spawn: '#34d399',
+        extract: '#fbbf24',
+        boss: '#f87171',
+        vehicle: '#c084fc'
+      }
+      ctx.fillStyle = colors[poi.type]
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = 2
       ctx.beginPath()
-      ctx.moveTo(tl.sx, p.sy)
-      ctx.lineTo(tl.sx + mapW, p.sy)
+      ctx.arc(p.sx, p.sy, 7, 0, Math.PI * 2)
+      ctx.fill()
       ctx.stroke()
     }
   }
 
-  const drawCross = (wx: number, wy: number, color: string, alpha = 1) => {
-    const p = worldToScreen(wx, wy)
-    ctx.strokeStyle = color
-    ctx.globalAlpha = alpha
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(p.sx - 12, p.sy)
-    ctx.lineTo(p.sx + 12, p.sy)
-    ctx.moveTo(p.sx, p.sy - 12)
-    ctx.lineTo(p.sx, p.sy + 12)
-    ctx.stroke()
-    ctx.globalAlpha = 1
-  }
-
-  if (hoverWorld.value && mode.value === 'inspect') drawCross(hoverWorld.value.x, hoverWorld.value.y, '#94a3b8', 0.7)
-  if (selectedWorld.value) drawCross(selectedWorld.value.x, selectedWorld.value.y, '#ef4444', 0.9)
-
-  for (const m of markers.value) {
-    const p = worldToScreen(m.x, m.y)
-    const isActive = m.id === activeMarkerId.value
-    ctx.fillStyle = isActive ? '#ef4444' : '#3b82f6'
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.arc(p.sx, p.sy, isActive ? 9 : 7, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
-    if (isActive) {
-      ctx.fillStyle = 'rgba(226, 232, 240, 0.92)'
-      ctx.font = '12px Segoe UI, Arial'
-      ctx.textAlign = 'left'
-      ctx.fillText(m.label, p.sx + 10, p.sy - 10)
+  if (showCustomMarkers.value) {
+    for (const m of markers.value) {
+      const p = worldToScreen(m.x, m.y)
+      const isActive = m.id === activeMarkerId.value
+      ctx.fillStyle = isActive ? '#ef4444' : '#93c5fd'
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(p.sx, p.sy, isActive ? 9 : 7, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+      if (isActive) {
+        ctx.fillStyle = '#f8fafc'
+        ctx.font = '12px Segoe UI, Arial'
+        ctx.fillText(m.label, p.sx + 10, p.sy - 10)
+      }
     }
   }
 }
@@ -356,25 +466,47 @@ function getCanvasRelativePosition(e: PointerEvent | WheelEvent) {
   const rect = canvas.getBoundingClientRect()
   return { sx: e.clientX - rect.left, sy: e.clientY - rect.top }
 }
-
 function findMarkerAtScreen(sx: number, sy: number) {
   let best: Marker | null = null
   let bestD2 = Infinity
-  const t = 14
+  const threshold = 14
   for (const m of markers.value) {
     const p = worldToScreen(m.x, m.y)
     const dx = p.sx - sx
     const dy = p.sy - sy
     const d2 = dx * dx + dy * dy
-    if (d2 <= t * t && d2 < bestD2) {
+    if (d2 <= threshold * threshold && d2 < bestD2) {
       best = m
       bestD2 = d2
     }
   }
   return best
 }
+function findPoiAtScreen(sx: number, sy: number) {
+  let best: Poi | null = null
+  let bestD2 = Infinity
+  const threshold = 12
+  for (const p of visiblePois.value) {
+    const s = worldToScreen(p.x, p.y)
+    const dx = s.sx - sx
+    const dy = s.sy - sy
+    const d2 = dx * dx + dy * dy
+    if (d2 <= threshold * threshold && d2 < bestD2) {
+      best = p
+      bestD2 = d2
+    }
+  }
+  return best
+}
 
-const dragState = reactive({ dragging: false, moved: false, startClientX: 0, startClientY: 0, startOffsetX: 0, startOffsetY: 0 })
+const dragState = reactive({
+  dragging: false,
+  moved: false,
+  startClientX: 0,
+  startClientY: 0,
+  startOffsetX: 0,
+  startOffsetY: 0
+})
 
 function onPointerDown(e: PointerEvent) {
   if (e.button !== 0) return
@@ -388,7 +520,6 @@ function onPointerDown(e: PointerEvent) {
   dragState.startOffsetX = view.offsetX
   dragState.startOffsetY = view.offsetY
 }
-
 function onPointerMove(e: PointerEvent) {
   const pos = getCanvasRelativePosition(e)
   if (!pos) return
@@ -406,7 +537,6 @@ function onPointerMove(e: PointerEvent) {
   hoverWorld.value = clampWorld(w.wx, w.wy)
   scheduleRender()
 }
-
 function onPointerUp(e: PointerEvent) {
   if (!dragState.dragging) return
   dragState.dragging = false
@@ -417,32 +547,31 @@ function onPointerUp(e: PointerEvent) {
   hasUserInteracted = true
   const w = screenToWorld(pos.sx, pos.sy)
   const clamped = clampWorld(w.wx, w.wy)
+  selectedWorld.value = { x: clamped.x, y: clamped.y }
 
   if (mode.value === 'mark') {
     const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`
     markers.value.push({ id, x: clamped.x, y: clamped.y, label: `标记 ${markers.value.length + 1}`, note: '' })
     activeMarkerId.value = id
-    selectedWorld.value = { x: clamped.x, y: clamped.y }
     scheduleRender()
-return
+    return
   }
 
-  const hit = findMarkerAtScreen(pos.sx, pos.sy)
-  if (hit) {
-    activeMarkerId.value = hit.id
-    selectedWorld.value = { x: hit.x, y: hit.y }
+  const marker = findMarkerAtScreen(pos.sx, pos.sy)
+  if (marker) {
+    activeMarkerId.value = marker.id
+    selectedWorld.value = { x: marker.x, y: marker.y }
   } else {
     activeMarkerId.value = null
-    selectedWorld.value = { x: clamped.x, y: clamped.y }
+    const poi = findPoiAtScreen(pos.sx, pos.sy)
+    if (poi) selectedWorld.value = { x: poi.x, y: poi.y }
   }
   scheduleRender()
 }
-
 function onPointerLeave() {
   hoverWorld.value = null
   scheduleRender()
 }
-
 function handleWheel(e: WheelEvent) {
   const pos = getCanvasRelativePosition(e)
   if (!pos) return
@@ -450,59 +579,102 @@ function handleWheel(e: WheelEvent) {
   const factor = Math.exp(-e.deltaY * 0.0015)
   const nextScale = Math.max(minScale, Math.min(maxScale, view.scale * factor))
   if (nextScale === view.scale) return
-
   view.scale = nextScale
   view.offsetX = pos.sx - wBefore.wx * view.scale
   view.offsetY = pos.sy - wBefore.wy * view.scale
   hasUserInteracted = true
   scheduleRender()
 }
-
 function resetView() {
   hasUserInteracted = false
   view.scale = 1
   centerMap()
   scheduleRender()
 }
-
 function adjustZoom(direction: 1 | -1) {
-  const nextScale = direction === 1 ? view.scale * 1.12 : view.scale / 1.12
-  view.scale = Math.max(minScale, Math.min(maxScale, nextScale))
+  view.scale = Math.max(minScale, Math.min(maxScale, direction === 1 ? view.scale * 1.15 : view.scale / 1.15))
   hasUserInteracted = true
   centerMap()
   scheduleRender()
 }
-
 function clearMarkers() {
-  if (markers.value.length === 0) return
+  if (!markers.value.length) return
   if (!confirm('确定清空所有标记吗？')) return
   markers.value = []
   activeMarkerId.value = null
   selectedWorld.value = null
   scheduleRender()
 }
-
 function deleteMarker(id: string) {
   markers.value = markers.value.filter((m) => m.id !== id)
   if (activeMarkerId.value === id) activeMarkerId.value = null
-  selectedWorld.value = null
   scheduleRender()
 }
-
 function selectMarker(id: string) {
-  const m = markers.value.find((mm) => mm.id === id)
-  if (!m) return
+  const marker = markers.value.find((m) => m.id === id)
+  if (!marker) return
   activeMarkerId.value = id
-  selectedWorld.value = { x: m.x, y: m.y }
+  selectedWorld.value = { x: marker.x, y: marker.y }
+  focusAt(marker.x, marker.y)
+}
+function focusAt(wx: number, wy: number) {
+  const area = canvasAreaRef.value
+  if (!area) return
+  const rect = area.getBoundingClientRect()
+  view.offsetX = rect.width / 2 - wx * view.scale
+  view.offsetY = rect.height / 2 - wy * view.scale
   scheduleRender()
 }
+function jumpToPoi(poi: Poi) {
+  selectedFloor.value = poi.floor
+  selectedWorld.value = { x: poi.x, y: poi.y }
+  focusAt(poi.x, poi.y)
+}
+function jumpToFirstSearchPoi() {
+  if (!searchResultPois.value.length) return
+  jumpToPoi(searchResultPois.value[0])
+}
 
-watch(() => [markers.value.length, showGrid.value, mode.value], () => scheduleRender())
+watch(
+  () => [
+    selectedFloor.value,
+    selectedMapMode.value,
+    selectedSecurity.value,
+    showGrid.value,
+    showOfficialPois.value,
+    showCustomMarkers.value,
+    eventEnabled.value,
+    mode.value,
+    markers.value.length
+  ],
+  () => scheduleRender()
+)
 
 onMounted(async () => {
+  if (!isAuthenticated()) {
+    router.push('/login')
+    return
+  }
+
+  try {
+    const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user')
+    if (userStr) {
+      const user = JSON.parse(userStr)
+      currentUser.value = user
+      userAvatar.value = user.avatar || userAvatar.value
+    }
+  } catch {
+    // ignore parse error
+  }
+
   await nextTick()
   resizeCanvas()
   scheduleRender()
+  mapImage.onload = () => {
+    bounds.width = mapImage.naturalWidth || bounds.width
+    bounds.height = mapImage.naturalHeight || bounds.height
+    resetView()
+  }
   if (canvasAreaRef.value) {
     resizeObserver = new ResizeObserver(() => {
       resizeCanvas()
@@ -519,9 +691,9 @@ onUnmounted(() => {
 
 <style scoped>
 * {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
   font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 .game-map-page {
@@ -531,406 +703,254 @@ onUnmounted(() => {
 }
 .container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 0 1.5rem;
-}
-.page-header {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-.header-content {
-  height: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  font-weight: 800;
-  white-space: nowrap;
-}
-.logo i {
-  color: #e53e3e;
-}
-.main-nav {
-  display: flex;
-  gap: 2rem;
-}
-.nav-link {
-  color: #666;
-  text-decoration: none;
-  font-weight: 600;
-}
-.nav-link.active,
-.nav-link:hover {
-  color: #e53e3e;
-}
-.nav-link.active::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background-color: #e53e3e;
-  border-radius: 3px;
-}
-.user-info {
-  position: relative;
-}
-.user-avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 2px solid #eee;
-}
-.user-avatar:hover {
-  border-color: #e53e3e;
-}
-.user-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
-  min-width: 160px;
-}
-.user-menu a {
-  display: block;
-  padding: 0.75rem 1rem;
-  color: #666;
-  text-decoration: none;
-  font-weight: 600;
-}
-.user-menu a:hover {
-  background: #f5f5f5;
-  color: #e53e3e;
+  padding: 0 1.2rem;
 }
 .gm-main {
-  padding: 2rem 0 4rem;
+  padding: 1.4rem 0 3rem;
 }
 .gm-workspace {
   display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: 1.5rem;
+  grid-template-columns: 1fr 350px;
+  gap: 1rem;
 }
 .gm-map-col {
   min-width: 0;
 }
+.gm-card {
+  background: rgba(2, 6, 23, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 14px;
+  padding: 0.9rem;
+}
 .gm-toolbar {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-.gm-modes {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-.gm-mode-btn {
-  padding: 0.65rem 1.05rem;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: #0b1220;
-  cursor: pointer;
-  color: #e5e7eb;
-  font-weight: 700;
-  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+  gap: 0.8rem;
 }
-.gm-mode-btn.active {
-  border-color: rgba(59, 130, 246, 0.7);
-  background: #3b82f6;
-  color: #fff;
+.gm-toolbar-group {
+  min-width: 0;
+}
+.gm-title {
+  font-weight: 800;
+  color: #f8fafc;
+}
+.gm-subtitle {
+  margin-top: 0.15rem;
+  color: #94a3b8;
+  font-size: 0.9rem;
 }
 .gm-toolbar-right {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 .gm-scale-pill {
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
   background: #0b1220;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid rgba(148, 163, 184, 0.22);
   color: #cbd5e1;
-  font-size: 0.92rem;
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
 }
 .gm-icon-btn {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
   background: #0b1220;
-  cursor: pointer;
   color: #cbd5e1;
-}
-.gm-icon-btn:hover:not(:disabled) {
-  border-color: rgba(59, 130, 246, 0.7);
-  color: #3b82f6;
+  cursor: pointer;
 }
 .gm-icon-btn:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
 }
-.gm-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.35rem 0.6rem;
-  border-radius: 999px;
+.gm-tabs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.7rem;
+  margin-bottom: 0.8rem;
+}
+.gm-tab-wrap,
+.gm-floor-wrap {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.gm-tab-btn,
+.gm-floor-btn {
+  border: 1px solid rgba(148, 163, 184, 0.26);
   background: #0b1220;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  cursor: pointer;
   color: #cbd5e1;
-  font-weight: 700;
+  border-radius: 10px;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+.gm-tab-btn.active,
+.gm-floor-btn.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: rgba(59, 130, 246, 0.6);
+}
+.gm-tab-btn-small {
+  padding: 0.4rem 0.6rem;
 }
 .gm-canvas-wrap {
   position: relative;
-  background: #0b1220;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  height: 680px;
   border-radius: 14px;
   overflow: hidden;
-  height: 640px; /* 修改为固定高度 */
-  max-height: 640px; /* 添加最大高度限制 */
+  border: 1px solid rgba(148, 163, 184, 0.22);
 }
 .gm-canvas {
   width: 100%;
-  height: 100%; /* 修改为100%填充容器 */
-  touch-action: none;
+  height: 100%;
   display: block;
+  touch-action: none;
 }
 .gm-overlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
-.gm-readout {
-  position: absolute;
-  left: 14px;
-  top: 14px;
-  background: rgba(2, 6, 23, 0.82);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 12px;
-  padding: 0.65rem 0.85rem;
-  font-size: 0.92rem;
-  color: #e5e7eb;
-}
+.gm-readout,
 .gm-selected {
   position: absolute;
-  right: 14px;
   top: 14px;
-  background: rgba(239, 68, 68, 0.09);
-  border: 1px solid rgba(239, 68, 68, 0.24);
-  border-radius: 12px;
-  padding: 0.6rem 0.85rem;
-  color: #fecaca;
-  font-weight: 800;
-  font-size: 0.92rem;
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.88rem;
+}
+.gm-readout {
+  left: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(2, 6, 23, 0.85);
+}
+.gm-selected {
+  right: 14px;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(37, 99, 235, 0.2);
 }
 .gm-hint {
-  margin-top: 0.8rem;
+  margin-top: 0.7rem;
   color: #94a3b8;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 .gm-side {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-.gm-card {
-  background: rgba(2, 6, 23, 0.35);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 14px;
-  padding: 1rem;
+  gap: 0.8rem;
 }
 .gm-card-title {
-  font-weight: 900;
   color: #f8fafc;
-  margin-bottom: 0.8rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
 }
 .gm-card-title-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.6rem;
+}
+.gm-search {
+  display: flex;
+  gap: 0.5rem;
+}
+.gm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.gm-item-btn {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: #0b1220;
+  color: #e5e7eb;
+  border-radius: 9px;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  text-align: left;
+}
+.gm-item-btn.active {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+}
+.gm-marker-item {
+  display: flex;
+  gap: 0.4rem;
+}
+.gm-del-btn {
+  width: 32px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.gm-switch-line {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+  color: #cbd5e1;
 }
 .gm-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 0.55rem 0;
-  border-top: 1px dashed rgba(148, 163, 184, 0.18);
-  color: #94a3b8;
   gap: 0.8rem;
-}
-.gm-row:first-of-type {
-  border-top: none;
-  padding-top: 0;
+  color: #94a3b8;
+  padding-top: 0.6rem;
+  border-top: 1px dashed rgba(148, 163, 184, 0.2);
+  margin-top: 0.6rem;
 }
 .gm-row b {
   color: #f1f5f9;
-  font-weight: 900;
-}
-.gm-empty {
-  padding: 0.6rem 0.2rem;
-  color: #94a3b8;
-}
-.gm-marker-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-.gm-marker-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-.gm-marker-pick {
-  flex: 1;
-  text-align: left;
-  padding: 0.6rem 0.75rem;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: #0b1220;
-  cursor: pointer;
-  font-weight: 800;
-}
-.gm-marker-pick:hover {
-  background: rgba(59, 130, 246, 0.12);
-}
-.gm-marker-pick.active {
-  border-color: rgba(239, 68, 68, 0.45);
-  background: rgba(239, 68, 68, 0.08);
-  color: #fecaca;
-}
-.gm-marker-del {
-  border-radius: 10px;
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  background: rgba(239, 68, 68, 0.08);
-  color: #fecaca;
-  cursor: pointer;
-  padding: 0.55rem 0.7rem;
-  font-weight: 900;
 }
 .gm-link-btn {
-  border: 0;
+  border: none;
   background: transparent;
-  color: #3b82f6;
-  font-weight: 900;
+  color: #60a5fa;
   cursor: pointer;
+  font-weight: 700;
 }
 .gm-link-btn:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
 }
-.gm-edit {
-  margin-top: 1rem;
-  border-top: 1px dashed rgba(148, 163, 184, 0.22);
-  padding-top: 0.9rem;
+.gm-empty {
+  color: #94a3b8;
+  font-size: 0.88rem;
 }
-.gm-edit-title {
-  font-weight: 900;
-  margin-bottom: 0.6rem;
+.gm-edit {
+  margin-top: 0.7rem;
+  border-top: 1px dashed rgba(148, 163, 184, 0.2);
+  padding-top: 0.7rem;
 }
 .gm-field {
   display: grid;
-  gap: 0.35rem;
-  margin-top: 0.65rem;
-}
-.gm-field:first-of-type {
-  margin-top: 0;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
 }
 .gm-field span {
   color: #94a3b8;
-  font-weight: 700;
 }
-.gm-input {
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 10px;
-  padding: 0.65rem 0.75rem;
-  outline: none;
-  font-size: 0.95rem;
-  background: #0b1220;
-  color: #e5e7eb;
-}
+.gm-input,
 .gm-textarea {
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 10px;
-  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 9px;
+  padding: 0.55rem 0.65rem;
   outline: none;
-  resize: vertical;
   background: #0b1220;
   color: #e5e7eb;
 }
-.page-footer {
-  background: #1a1a1a;
-  color: #999;
-  margin-top: 2.5rem;
-  padding: 2.5rem 0;
-}
-.footer-content {
-  display: flex;
-  justify-content: space-between;
-  gap: 2rem;
-  flex-wrap: wrap;
-  align-items: center;
-}
-.footer-logo {
-  display: flex;
-  gap: 0.8rem;
-  align-items: center;
-  font-weight: 800;
-  color: #fff;
-}
-.footer-logo i {
-  color: #e53e3e;
-}
-@media (max-width: 992px) {
+@media (max-width: 1080px) {
   .gm-workspace {
     grid-template-columns: 1fr;
   }
 }
 </style>
-
-function resizeCanvas() {
-  const canvas = canvasRef.value
-  const area = canvasAreaRef.value
-  if (!canvas || !area) return
-  
-  const rect = area.getBoundingClientRect()
-  // 使用容器实际高度，但限制最大高度
-  const w = Math.max(320, Math.min(rect.width, window.innerWidth - 100))
-  const h = Math.max(420, Math.min(rect.height, window.innerHeight - 200))
-  
-  dpr = window.devicePixelRatio || 1
-  canvas.style.width = `${w}px`
-  canvas.style.height = `${h}px`
-  canvas.width = Math.round(w * dpr)
-  canvas.height = Math.round(h * dpr)
-  
-  if (!initDone) {
-    initDone = true
-    centerMap()
-  } else if (!hasUserInteracted) {
-    centerMap()
-  }
-}

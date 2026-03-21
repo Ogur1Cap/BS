@@ -47,8 +47,67 @@ export const mockDb = {
     cancel(orderId: string): Order[] {
       const idx = orders.findIndex((o) => o.id === orderId)
       if (idx !== -1) {
+        if (!['pending', 'ongoing'].includes(orders[idx].status)) return [...orders]
         orders[idx].status = 'cancelled'
         orders[idx].statusText = '已取消'
+      }
+      return [...orders]
+    },
+    create(payload: {
+      gameKey: string
+      game: string
+      gameImage: string
+      serviceType: string
+      amount: number
+      playerId?: string
+      playerName?: string
+    }): Order[] {
+      const id = `ORD-${Math.floor(10000 + Math.random() * 90000)}`
+      const next: Order = {
+        id,
+        game: payload.game,
+        gameKey: payload.gameKey,
+        gameImage: payload.gameImage,
+        serviceType: payload.serviceType,
+        status: 'pending',
+        statusText: '待接单',
+        amount: payload.amount,
+        createdAt: new Date().toISOString(),
+        startTime: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        player: payload.playerId
+          ? {
+              id: payload.playerId,
+              name: payload.playerName || '指定打手',
+              avatar: 'https://picsum.photos/id/1005/40/40'
+            }
+          : null
+      }
+      orders = [next, ...orders]
+      return [...orders]
+    },
+    detail(orderId: string): Order | null {
+      return orders.find((item) => item.id === orderId) || null
+    },
+    reschedule(orderId: string, startTime: string): Order[] {
+      const idx = orders.findIndex((o) => o.id === orderId)
+      if (idx !== -1) {
+        if (!['pending', 'ongoing'].includes(orders[idx].status)) return [...orders]
+        orders[idx].startTime = startTime
+        if (orders[idx].status === 'pending') {
+          orders[idx].status = 'ongoing'
+          orders[idx].statusText = '进行中'
+        }
+      }
+      return [...orders]
+    },
+    refund(orderId: string, reason?: string): Order[] {
+      const idx = orders.findIndex((o) => o.id === orderId)
+      if (idx !== -1) {
+        if (orders[idx].status === 'cancelled') return [...orders]
+        orders[idx].status = 'cancelled'
+        orders[idx].statusText = '已取消'
+        orders[idx].refundRequested = true
+        orders[idx].refundReason = reason || '用户申请退款'
       }
       return [...orders]
     }

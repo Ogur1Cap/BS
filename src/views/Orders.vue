@@ -44,10 +44,7 @@
               @change="handleFilterChange"
             >
               <option value="all">全部游戏</option>
-              <option value="delta">三角洲行动</option>
-              <option value="pubg">绝地求生</option>
-              <option value="cod">使命召唤</option>
-              <option value="apex">Apex英雄</option>
+              <option v-for="game in gameOptions" :key="game.key" :value="game.key">{{ game.name }}</option>
             </select>
           </div>
           
@@ -153,13 +150,13 @@
                 <td class="order-date-col">{{ formatDate(order.createdAt) }}</td>
                 <td class="order-action-col">
                   <div class="action-buttons">
-                    <router-link 
-                      :to="`/orders/${order.id}`" 
+                    <button 
                       class="view-btn"
                       title="查看详情"
+                      @click="handleViewOrder(order.id)"
                     >
                       <i class="fa fa-eye"></i>
-                    </router-link>
+                    </button>
                     <button 
                       class="cancel-btn"
                       @click="handleCancelOrder(order.id)"
@@ -249,6 +246,50 @@
       <span>{{ toastMessage }}</span>
     </div>
 
+    <!-- 创建订单弹窗 -->
+    <div class="modal-backdrop" v-if="showCreateModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title">创建新订单</h3>
+          <button class="close-modal" @click="showCreateModal = false">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-grid-create">
+            <div class="filter-group-col">
+              <label class="filter-label">游戏服务</label>
+              <select v-model="createForm.gameKey" class="filter-select">
+                <option v-for="game in gameOptions" :key="game.key" :value="game.key">{{ game.name }}</option>
+              </select>
+            </div>
+            <div class="filter-group-col">
+              <label class="filter-label">服务类型</label>
+              <select v-model="createForm.serviceType" class="filter-select" @change="handleCreateServiceTypeChange">
+                <option v-for="service in serviceOptions" :key="service" :value="service">{{ service }}</option>
+              </select>
+            </div>
+            <div class="filter-group-col">
+              <label class="filter-label">订单金额</label>
+              <input v-model.number="createForm.amount" class="search-input" type="number" min="1" placeholder="请输入金额" />
+            </div>
+            <div class="filter-group-col">
+              <label class="filter-label">指定打手ID（可选）</label>
+              <input v-model.trim="createForm.playerId" class="search-input" type="text" placeholder="例如 p1" />
+            </div>
+            <div class="filter-group-col">
+              <label class="filter-label">打手昵称（可选）</label>
+              <input v-model.trim="createForm.playerName" class="search-input" type="text" placeholder="例如 三角洲-猎鹰" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" @click="showCreateModal = false">取消</button>
+          <button class="modal-btn confirm" @click="submitCreateOrder">确认创建</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 确认取消订单弹窗 -->
     <div class="modal-backdrop" v-if="showCancelModal">
       <div class="modal">
@@ -286,8 +327,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ordersApi } from '../api/ordersApi';
+import { GAME_LIST, getGameByKey } from '../constants/games';
+import { SERVICE_LIST, getServiceByKey } from '../constants/services';
 
 // 导入组件
 import Header from '../layouts/Header.vue';
@@ -295,6 +338,7 @@ import Footer from '../layouts/Footer.vue';
 
 // 路由实例
 const router = useRouter();
+const route = useRoute();
 
 // 状态管理
 const currentUser = ref<{ username: string } | undefined>(undefined);
@@ -316,6 +360,27 @@ const pageSize = ref(10);
 const showCancelModal = ref(false);
 const cancelOrderId = ref('');
 const cancelReason = ref('');
+const showCreateModal = ref(false);
+
+// 创建订单表单
+const gameOptions = GAME_LIST.map((game) => ({
+  key: game.key,
+  name: game.name,
+  image: game.imageUrl.replace('/400/200', '/60/60')
+}));
+const serviceOptions = SERVICE_LIST.map((service) => service.name);
+
+const createForm = reactive({
+  gameKey: 'delta',
+  serviceType: '全程护航',
+  amount: 198,
+  playerId: '',
+  playerName: ''
+});
+
+const selectedCreateGame = computed(() => {
+  return gameOptions.find((item) => item.key === createForm.gameKey) || gameOptions[0];
+});
 
 // 提示消息状态
 const showToast = ref(false);
@@ -558,9 +623,75 @@ const changePage = (page: number) => {
   }
 };
 
+// 查看订单详情
+const handleViewOrder = (orderId: string) => {
+  router.push(`/orders/${orderId}`);
+};
+
 // 导航到创建订单页面
 const navigateToCreateOrder = () => {
-  router.push('/escort');
+  showCreateModal.value = true;
+};
+
+const handleCreateServiceTypeChange = () => {
+  const serviceMeta = getServiceByNameSafe(createForm.serviceType);
+  if (!serviceMeta) return;
+  createForm.amount = serviceMeta.defaultAmount;
+};
+
+const submitCreateOrder = async () => {
+  if (!createForm.serviceType || createForm.amount <= 0) {
+    showToastMessage('请完善订单信息后再提交', 'error');
+    return;
+  }
+
+  try {
+    isLoading.value = true;
+    const selectedService = getServiceByNameSafe(createForm.serviceType);
+    const payload = {
+      gameKey: selectedCreateGame.value.key,
+      game: selectedCreateGame.value.name,
+      gameImage: selectedCreateGame.value.image,
+      serviceType: createForm.serviceType,
+      amount: Number(createForm.amount) || selectedService?.defaultAmount || 198,
+      playerId: createForm.playerId.trim() || undefined,
+      playerName: createForm.playerName.trim() || undefined
+    };
+    orders.value = await ordersApi.createOrder(payload);
+    showCreateModal.value = false;
+    showToastMessage('订单创建成功，已加入待接单列表', 'success');
+    currentPage.value = 1;
+  } catch (error) {
+    console.error('创建订单失败:', error);
+    showToastMessage('创建订单失败，请稍后重试', 'error');
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const applyCreateQuery = () => {
+  const shouldCreate = String(route.query.create || '') === '1';
+  if (!shouldCreate) return;
+  const gameKey = String(route.query.gameKey || '').trim();
+  const serviceKey = String(route.query.serviceKey || '').trim();
+  const playerId = String(route.query.playerId || '').trim();
+  const validGame = !!getGameByKey(gameKey);
+  const serviceMeta = getServiceByKey(serviceKey);
+  if (validGame) createForm.gameKey = gameKey;
+  if (serviceMeta) {
+    createForm.serviceType = serviceMeta.name;
+    createForm.amount = serviceMeta.defaultAmount;
+  }
+  if (playerId) {
+    createForm.playerId = playerId;
+    createForm.playerName = `打手-${playerId}`;
+  }
+  showCreateModal.value = true;
+  router.replace({ path: '/orders' });
+};
+
+const getServiceByNameSafe = (serviceName: string) => {
+  return SERVICE_LIST.find((service) => service.name === serviceName);
 };
 
 // 处理取消订单
@@ -614,6 +745,7 @@ const handleLogout = () => {
 onMounted(() => {
   initUserInfo();
   initOrders();
+  applyCreateQuery();
 });
 </script>
 
@@ -1222,6 +1354,22 @@ onMounted(() => {
   color: #d1d5db;
 }
 
+.form-grid-create {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+.form-grid-create .search-input,
+.form-grid-create .filter-select {
+  width: 100%;
+}
+
+.filter-group-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
 .cancel-warning {
   color: #f59e0b;
   font-size: 0.875rem;
@@ -1333,6 +1481,10 @@ onMounted(() => {
     margin-top: 1rem;
     width: 100%;
     text-align: center;
+  }
+
+  .form-grid-create {
+    grid-template-columns: 1fr;
   }
 }
 

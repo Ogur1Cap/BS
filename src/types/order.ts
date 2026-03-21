@@ -17,5 +17,30 @@ export interface Order {
   amount: number
   createdAt: string
   player: OrderPlayer | null
+  startTime?: string
+  refundRequested?: boolean
+  refundReason?: string
+}
+
+export interface CreateOrderPayload {
+  gameKey: string
+  game: string
+  gameImage: string
+  serviceType: string
+  amount: number
+  serviceKey?: string
+  source?: string
+  playerId?: string
+  playerName?: string
+}
+
+export interface RescheduleOrderPayload {
+  orderId: string
+  startTime: string
+}
+
+export interface RefundOrderPayload {
+  orderId: string
+  reason?: string
 }
 

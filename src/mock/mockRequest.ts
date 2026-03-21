@@ -1,4 +1,4 @@
-import type { ApiRequestOptions } from '../api/apiClient'
+import type { ApiRequestOptions } from '../api/request'
 import { mockDb } from './mockDb'
 import type { LoginResponse } from '../types/auth'
 import type { Profile } from '../types/profile'
@@ -71,9 +71,44 @@ export async function mockRequest<T>(options: ApiRequestOptions): Promise<T> {
     return res as unknown as T
   }
 
+  if (method === 'POST' && path === '/orders') {
+    const payload = assertBody<{
+      gameKey: string
+      game: string
+      gameImage: string
+      serviceType: string
+      amount: number
+      playerId?: string
+      playerName?: string
+    }>(options.body)
+    const res = mockDb.orders.create(payload)
+    return res as unknown as T
+  }
+
   if (method === 'POST' && path.endsWith('/cancel') && path.startsWith('/orders/')) {
     const orderId = decodeURIComponent(path.split('/')[2] || '')
     const res = mockDb.orders.cancel(orderId)
+    return res as unknown as T
+  }
+
+  if (method === 'GET' && path.startsWith('/orders/')) {
+    const orderId = decodeURIComponent(path.split('/')[2] || '')
+    const res = mockDb.orders.detail(orderId)
+    if (!res) throw new Error(`Order not found: ${orderId}`)
+    return res as unknown as T
+  }
+
+  if (method === 'POST' && path.endsWith('/reschedule') && path.startsWith('/orders/')) {
+    const orderId = decodeURIComponent(path.split('/')[2] || '')
+    const body = assertBody<{ startTime: string }>(options.body)
+    const res = mockDb.orders.reschedule(orderId, body.startTime)
+    return res as unknown as T
+  }
+
+  if (method === 'POST' && path.endsWith('/refund') && path.startsWith('/orders/')) {
+    const orderId = decodeURIComponent(path.split('/')[2] || '')
+    const body = assertBody<{ reason?: string }>(options.body)
+    const res = mockDb.orders.refund(orderId, body.reason)
     return res as unknown as T
   }
 
