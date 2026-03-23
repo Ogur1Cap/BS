@@ -1,5 +1,5 @@
 import { isMockMode } from './apiMode'
-import { getAuthToken } from './token'
+import { getAuthToken, removeAuthToken, removeAuthUser } from './token'
 import { mockRequest } from '../mock/mockRequest'
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -15,12 +15,14 @@ export interface ApiRequestOptions {
 
 export class ApiError extends Error {
   status: number
+  code?: string | number
   data: unknown
 
-  constructor(message: string, status: number, data: unknown) {
+  constructor(message: string, status: number, data: unknown, code?: string | number) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code
     this.data = data
   }
 }
@@ -30,6 +32,49 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.
 
 export function getApiBaseUrl(): string {
   return API_BASE_URL
+}
+
+type WrappedApiResponse<T> = {
+  code?: string | number
+  message?: string
+  data?: T
+}
+
+function isWrappedResponse<T>(value: unknown): value is WrappedApiResponse<T> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  return 'code' in value || 'message' in value || 'data' in value
+}
+
+function isBusinessSuccessCode(code: unknown): boolean {
+  return code === 0 || code === 200 || code === '0' || code === '200'
+}
+
+function buildRedirectLoginUrl(): string {
+  const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  return `/login?redirect=${encodeURIComponent(redirect)}`
+}
+
+function handleUnauthorized(): void {
+  removeAuthToken()
+  removeAuthUser()
+  if (window.location.pathname !== '/login') {
+    window.location.replace(buildRedirectLoginUrl())
+  }
+}
+
+function unwrapResponseData<T>(payload: unknown, status: number): T {
+  if (!isWrappedResponse<T>(payload)) {
+    return payload as T
+  }
+
+  const responseCode = payload.code
+  const responseMessage = payload.message || '请求失败'
+
+  if (responseCode === undefined || responseCode === null || isBusinessSuccessCode(responseCode)) {
+    return payload.data as T
+  }
+
+  throw new ApiError(responseMessage, status, payload, responseCode)
 }
 
 function buildUrl(path: string, query?: ApiRequestOptions['query']) {
@@ -78,8 +123,21 @@ export async function apiRequest<T>(options: ApiRequestOptions): Promise<T> {
   })() : null
 
   if (!res.ok) {
-    throw new ApiError('Request failed', res.status, data)
+    const backendMessage = (
+      data && typeof data === 'object' && 'message' in data
+        ? (data as { message?: unknown }).message
+        : undefined
+    )
+    const errorMessage = typeof backendMessage === 'string' && backendMessage.trim()
+      ? backendMessage
+      : 'Request failed'
+
+    if (res.status === 401) {
+      handleUnauthorized()
+    }
+    throw new ApiError(errorMessage, res.status, data)
   }
 
-  return data as T
+  const unwrapped = unwrapResponseData<T>(data, res.status)
+  return unwrapped
 }

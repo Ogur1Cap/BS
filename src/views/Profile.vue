@@ -232,6 +232,7 @@
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { profileApi } from '../api/profileApi';
+import { getAuthUser, removeAuthToken, removeAuthUser, setAuthUser } from '../api/token';
 
 // 导入组件
 import Header from '../layouts/Header.vue';
@@ -279,8 +280,8 @@ const stats = reactive({
 
 // 初始化用户数据（来自 API / mock store）
 const initUserProfile = async () => {
-  const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user')
-  if (!userStr) return
+  const cachedUser = getAuthUser()
+  if (!cachedUser) return
 
   try {
     const profile = await profileApi.getProfile()
@@ -410,11 +411,8 @@ const handleSubmit = async () => {
       email: updated.email,
       phone: updated.phone
     }
-    if (localStorage.getItem('delta_user')) {
-      localStorage.setItem('delta_user', JSON.stringify(updatedUser))
-    } else if (sessionStorage.getItem('delta_user')) {
-      sessionStorage.setItem('delta_user', JSON.stringify(updatedUser))
-    }
+    const remember = !!localStorage.getItem('delta_token')
+    setAuthUser(updatedUser, remember)
     currentUser.value = { username: updated.username }
     
     // 切换到查看模式
@@ -452,10 +450,8 @@ const maskPhone = (phone: string) => {
 // 处理登出
 const handleLogout = () => {
   // 清除存储的登录信息
-  localStorage.removeItem('delta_token');
-  localStorage.removeItem('delta_user');
-  sessionStorage.removeItem('delta_token');
-  sessionStorage.removeItem('delta_user');
+  removeAuthToken();
+  removeAuthUser();
   
   // 跳转到登录页
   router.push('/login');

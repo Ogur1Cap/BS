@@ -141,6 +141,75 @@
     <!-- 页脚（复用项目现有Footer） -->
     <Footer />
 
+    <!-- 打手详情弹窗 -->
+    <div
+      v-if="showDetailModal && selectedPlayer"
+      class="modal-backdrop"
+      @click.self="closeDetailModal"
+    >
+      <div class="detail-modal">
+        <button class="modal-close-btn" type="button" @click="closeDetailModal" aria-label="关闭详情">
+          <i class="fa fa-times"></i>
+        </button>
+
+        <div class="detail-header">
+          <img :src="selectedPlayer.avatar" :alt="selectedPlayer.name" class="detail-avatar" />
+          <div class="detail-user-main">
+            <h3>{{ selectedPlayer.name }}</h3>
+            <div class="detail-rank-row">
+              <span class="detail-rank-badge" :style="{ backgroundColor: selectedPlayer.rankColor }">
+                {{ selectedPlayer.rankText }}
+              </span>
+              <span class="detail-price">¥{{ selectedPlayer.pricePerHour }}/小时</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-metrics">
+          <div class="metric-item">
+            <span class="metric-label">胜率</span>
+            <span class="metric-value">{{ selectedPlayer.winRate }}%</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">评分</span>
+            <span class="metric-value">{{ selectedPlayer.rating.toFixed(1) }}</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">完成订单</span>
+            <span class="metric-value">{{ selectedPlayer.completedOrders }}</span>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4>擅长领域</h4>
+          <div class="detail-chip-list">
+            <span v-for="skill in selectedPlayer.skills" :key="skill" class="detail-chip">
+              {{ skill }}
+            </span>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4>服务标签</h4>
+          <div class="detail-chip-list">
+            <span v-for="tag in selectedPlayer.tags" :key="tag" class="detail-chip tag-chip">
+              {{ tag }}
+            </span>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4>个人简介</h4>
+          <p class="detail-intro">{{ selectedPlayer.intro }}</p>
+        </div>
+
+        <div class="detail-actions">
+          <button class="detail-btn secondary" type="button" @click="closeDetailModal">关闭</button>
+          <button class="detail-btn primary" type="button" @click="bookSelectedPlayer">立即预约</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 背景装饰（保持与护航页面风格统一） -->
     <div class="background-decoration">
       <div class="bg-blob blob-1"></div>
@@ -200,6 +269,10 @@ const skillMap: Record<string, string> = {
 // 分页状态
 const currentPage = ref(1);
 const pageSize = ref(8); // 每页显示8个打手
+
+// 打手详情弹窗状态
+const selectedPlayer = ref<Player | null>(null);
+const showDetailModal = ref(false);
 
 // —— 模拟打手数据（实际项目对接API） ——
 const allPlayers = ref<Player[]>([
@@ -434,10 +507,22 @@ const handleBookPlayer = (playerId: string) => {
 
 // 查看打手详情
 const handleViewPlayerDetail = (playerId: string) => {
-  router.push({
-    path: '/orders',
-    query: { create: '1', gameKey: 'delta', playerId, source: 'play-hall' }
-  });
+  const player = allPlayers.value.find((item) => item.id === playerId);
+  if (!player) return;
+  selectedPlayer.value = player;
+  showDetailModal.value = true;
+};
+
+// 关闭详情弹窗
+const closeDetailModal = () => {
+  showDetailModal.value = false;
+};
+
+// 在详情弹窗内继续预约，避免打断原有下单链路
+const bookSelectedPlayer = () => {
+  if (!selectedPlayer.value) return;
+  closeDetailModal();
+  handleBookPlayer(selectedPlayer.value.id);
 };
 
 // 处理登出
@@ -702,6 +787,172 @@ onMounted(() => {
   background-color: #8b5cf6;
 }
 
+/* 详情弹窗 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background-color: rgba(2, 6, 23, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.detail-modal {
+  width: min(680px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: #111827;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  position: relative;
+  box-shadow: 0 24px 48px rgba(2, 6, 23, 0.55);
+}
+
+.modal-close-btn {
+  position: absolute;
+  right: 0.75rem;
+  top: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.detail-avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 2px solid rgba(59, 130, 246, 0.45);
+}
+
+.detail-user-main h3 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: #f8fafc;
+}
+
+.detail-rank-row {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.detail-rank-badge {
+  color: #fff;
+  font-size: 0.82rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+}
+
+.detail-price {
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+.detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.metric-item {
+  background: #1f2937;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(55, 65, 81, 0.6);
+  padding: 0.75rem;
+}
+
+.metric-label {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.metric-value {
+  display: block;
+  margin-top: 0.35rem;
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.detail-section {
+  margin-top: 0.9rem;
+}
+
+.detail-section h4 {
+  margin: 0 0 0.5rem;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+}
+
+.detail-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.detail-chip {
+  font-size: 0.8rem;
+  border-radius: 9999px;
+  padding: 0.25rem 0.65rem;
+  background: rgba(59, 130, 246, 0.16);
+  color: #bfdbfe;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.tag-chip {
+  background: rgba(139, 92, 246, 0.16);
+  color: #ddd6fe;
+  border-color: rgba(139, 92, 246, 0.35);
+}
+
+.detail-intro {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.75;
+}
+
+.detail-actions {
+  margin-top: 1.15rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.detail-btn {
+  border: none;
+  border-radius: 0.6rem;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.detail-btn.secondary {
+  color: #e2e8f0;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.detail-btn.primary {
+  color: #fff;
+  background: linear-gradient(90deg, #2563eb 0%, #4f46e5 100%);
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
   .filter-sort-container {
@@ -723,6 +974,10 @@ onMounted(() => {
   }
 
   .players-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-metrics {
     grid-template-columns: 1fr;
   }
 

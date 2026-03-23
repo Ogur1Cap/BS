@@ -1,13 +1,15 @@
 import { isMockMode } from './apiMode';
-import { getAuthToken } from './token';
+import { getAuthToken, removeAuthToken, removeAuthUser } from './token';
 import { mockRequest } from '../mock/mockRequest';
 export class ApiError extends Error {
     status;
+    code;
     data;
-    constructor(message, status, data) {
+    constructor(message, status, data, code) {
         super(message);
         this.name = 'ApiError';
         this.status = status;
+        this.code = code;
         this.data = data;
     }
 }
@@ -15,6 +17,36 @@ export class ApiError extends Error {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || '';
 export function getApiBaseUrl() {
     return API_BASE_URL;
+}
+function isWrappedResponse(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+        return false;
+    return 'code' in value || 'message' in value || 'data' in value;
+}
+function isBusinessSuccessCode(code) {
+    return code === 0 || code === 200 || code === '0' || code === '200';
+}
+function buildRedirectLoginUrl() {
+    const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    return `/login?redirect=${encodeURIComponent(redirect)}`;
+}
+function handleUnauthorized() {
+    removeAuthToken();
+    removeAuthUser();
+    if (window.location.pathname !== '/login') {
+        window.location.replace(buildRedirectLoginUrl());
+    }
+}
+function unwrapResponseData(payload, status) {
+    if (!isWrappedResponse(payload)) {
+        return payload;
+    }
+    const responseCode = payload.code;
+    const responseMessage = payload.message || '请求失败';
+    if (responseCode === undefined || responseCode === null || isBusinessSuccessCode(responseCode)) {
+        return payload.data;
+    }
+    throw new ApiError(responseMessage, status, payload, responseCode);
 }
 function buildUrl(path, query) {
     const url = new URL(path, getApiBaseUrl() || window.location.origin);
@@ -56,7 +88,17 @@ export async function apiRequest(options) {
         }
     })() : null;
     if (!res.ok) {
-        throw new ApiError('Request failed', res.status, data);
+        const backendMessage = (data && typeof data === 'object' && 'message' in data
+            ? data.message
+            : undefined);
+        const errorMessage = typeof backendMessage === 'string' && backendMessage.trim()
+            ? backendMessage
+            : 'Request failed';
+        if (res.status === 401) {
+            handleUnauthorized();
+        }
+        throw new ApiError(errorMessage, res.status, data);
     }
-    return data;
+    const unwrapped = unwrapResponseData(data, res.status);
+    return unwrapped;
 }

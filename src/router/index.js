@@ -13,6 +13,7 @@ import PlayHall from '../views/PlayHall.vue';
 import SupportCenter from '../views/SupportCenter.vue';
 import HelpCenter from '../views/HelpCenter.vue';
 import GameMap from '../views/GameMap.vue';
+import { getAuthToken } from '../api/token';
 // 路由规则
 const routes = [
     {
@@ -158,18 +159,21 @@ router.beforeEach((to, from, next) => {
     }
     // 检查是否需要登录
     const requiresAuth = to.meta.requiresAuth;
-    const isAuthenticated = !!localStorage.getItem('delta_token') || !!sessionStorage.getItem('delta_token');
+    const isAuthenticated = !!getAuthToken();
+    const isAuthPage = to.path === '/login' || to.path === '/register';
     if (requiresAuth && !isAuthenticated) {
         // 需要登录但未登录，重定向到登录页
-        next('/login');
+        next({
+            path: '/login',
+            query: {
+                redirect: to.fullPath
+            }
+        });
     }
-    else if (to.path === '/login' && isAuthenticated) {
-        // 已登录但访问登录页，重定向到首页
-        next('/dashboard');
-    }
-    else if (to.path === '/register' && isAuthenticated) {
-        // 已登录但访问注册页，重定向到首页
-        next('/dashboard');
+    else if (isAuthPage && isAuthenticated) {
+        // 已登录访问登录/注册页，优先回跳 redirect，其次首页
+        const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '';
+        next(redirect || '/dashboard');
     }
     else {
         // 其他情况正常跳转

@@ -169,6 +169,7 @@
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { authApi } from '../api/authApi';
+import { setAuthToken, setAuthUser } from '../api/token';
 
 // 路由实例
 const router = useRouter();
@@ -281,16 +282,12 @@ const handleLogin = async () => {
     const resp = await authApi.login({ username: form.username, password: form.password })
 
     // 存储登录状态（记住我 / 仅本会话）
-    if (form.rememberMe) {
-      localStorage.setItem('delta_token', resp.token)
-      localStorage.setItem('delta_user', JSON.stringify(resp.user))
-    } else {
-      sessionStorage.setItem('delta_token', resp.token)
-      sessionStorage.setItem('delta_user', JSON.stringify(resp.user))
-    }
+    setAuthToken(resp.token, form.rememberMe)
+    setAuthUser(resp.user, form.rememberMe)
     
-    // 登录成功后跳转到首页
-    router.push('/dashboard');
+    // 登录成功后优先回跳 redirect，未提供时进入首页
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+    router.push(redirect || '/dashboard');
     
   } catch (error) {
     console.error('登录失败:', error);
