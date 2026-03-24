@@ -1,11 +1,7 @@
 <template>
   <div class="profile-page">
     <!-- 头部导航 -->
-    <Header 
-      :current-user="currentUser" 
-      :user-avatar="userAvatar"
-      @logout="handleLogout"
-    />
+    <Header />
 
     <!-- 主内容区域 -->
     <main class="page-content">
@@ -33,7 +29,7 @@
           <div class="avatar-section">
             <div class="avatar-container">
               <img 
-                :src="form.avatar" 
+                :src="avatarPreview" 
                 alt="用户头像" 
                 class="profile-avatar"
               >
@@ -229,29 +225,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { profileApi } from '../api/profileApi';
-import { getAuthUser, removeAuthToken, removeAuthUser, setAuthUser } from '../api/token';
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useUserStore } from '../stores/user'
+import { resolvePublicFileUrl } from '../api/publicUrl'
 
 // 导入组件
-import Header from '../layouts/Header.vue';
-import Footer from '../layouts/Footer.vue';
+import Header from '../layouts/Header.vue'
+import Footer from '../layouts/Footer.vue'
 
-// 路由实例
-const router = useRouter();
+const userStore = useUserStore()
 
 // 状态管理
-const isEditing = ref(false);
-const isSubmitting = ref(false);
-const showSuccessToast = ref(false);
-const successMessage = ref('');
+const isEditing = ref(false)
+const isSubmitting = ref(false)
+const showSuccessToast = ref(false)
+const successMessage = ref('')
 
-// 用户数据
-const currentUser = ref<{ username: string } | undefined>(undefined);
-const userAvatar = ref('https://picsum.photos/id/237/200/200');
-const userLevel = ref('白银会员');
-const memberSince = ref('2023年5月');
+const userLevel = ref('白银会员')
+const memberSince = ref('2023年5月')
 
 // 表单数据
 const form = reactive({
@@ -278,74 +269,88 @@ const stats = reactive({
   membershipDays: 168
 });
 
-// 初始化用户数据（来自 API / mock store）
+const DEFAULT_AVATAR = 'https://picsum.photos/id/237/200/200'
+
+/** 头像展示：相对路径拼 API 根地址 */
+const avatarPreview = computed(() => {
+  const raw = form.avatar?.trim()
+  if (!raw) return userStore.resolvedAvatarUrl
+  if (raw.startsWith('data:') || raw.startsWith('http')) return raw
+  return resolvePublicFileUrl(raw) || DEFAULT_AVATAR
+})
+
+const loadFormFromStore = () => {
+  const p = userStore.profile
+  if (!p) return
+  form.username = p.username
+  form.email = p.email
+  form.phone = p.phone || ''
+  form.avatar = p.avatar || ''
+  form.bio = p.bio || ''
+  form.gamePreference = p.gamePreference || ''
+}
+
+// 进入页面拉取服务端最新资料（与账户设置等页共用 store）
 const initUserProfile = async () => {
-  const cachedUser = getAuthUser()
-  if (!cachedUser) return
-
   try {
-    const profile = await profileApi.getProfile()
-
-    currentUser.value = { username: profile.username }
-    form.username = profile.username
-    form.email = profile.email
-    form.phone = profile.phone || ''
-    form.avatar = profile.avatar
-    userAvatar.value = profile.avatar
-    form.bio = profile.bio
-    form.gamePreference = profile.gamePreference
+    await userStore.loadUserFromServer()
+    loadFormFromStore()
   } catch (e) {
     console.error('加载个人资料失败:', e)
+    loadFormFromStore()
   }
-};
+}
 
 // 切换编辑模式
 const toggleEditMode = () => {
-  if (isSubmitting.value) return;
-  
-  isEditing.value = !isEditing.value;
-  
-  // 退出编辑模式时重置错误
-  if (!isEditing.value) {
-    Object.keys(errors).forEach(key => {
-      errors[key as keyof typeof errors] = '';
-    });
-  }
-};
+  if (isSubmitting.value) return
 
-// 处理头像上传
-const handleAvatarChange = (e: Event) => {
-  const input = e.target as HTMLInputElement;
-  if (input.files && input.files[0]) {
-    const file = input.files[0];
-    
-    // 简单验证文件类型
-    if (!file.type.startsWith('image/')) {
-      alert('请选择图片文件');
-      return;
-    }
-    
-    // 预览图片
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      form.avatar = event.target?.result as string;
-      userAvatar.value = form.avatar;
-      
-      // 显示成功提示
-      showSuccessToast.value = true;
-      successMessage.value = '头像更新成功';
-      
-      // 3秒后隐藏提示
-      setTimeout(() => {
-        showSuccessToast.value = false;
-      }, 3000);
-      
-      // 实际项目中这里会调用API上传图片
-      console.log('上传头像:', file);
-    };
-    reader.readAsDataURL(file);
+  const wasEditing = isEditing.value
+  isEditing.value = !isEditing.value
+
+  if (wasEditing) {
+    loadFormFromStore()
   }
-};
+
+  if (!isEditing.value) {
+    Object.keys(errors).forEach((key) => {
+      errors[key as keyof typeof errors] = ''
+    })
+  }
+}
+
+// 选择图片后立即上传并写入资料，全站头像统一
+const handleAvatarChange = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    alert('请选择图片文件')
+    input.value = ''
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    alert('图片大小请不超过 2MB')
+    input.value = ''
+    return
+  }
+
+  try {
+    await userStore.uploadAvatarFile(file)
+    loadFormFromStore()
+    showSuccessToast.value = true
+    successMessage.value = '头像已上传并保存'
+    setTimeout(() => {
+      showSuccessToast.value = false
+    }, 3000)
+  } catch (err) {
+    console.error(err)
+    alert('头像上传失败，请稍后重试')
+  } finally {
+    input.value = ''
+  }
+}
 
 // 表单验证
 const validateForm = (): boolean => {
@@ -390,12 +395,12 @@ const validateForm = (): boolean => {
 
 // 处理表单提交
 const handleSubmit = async () => {
-  if (!validateForm()) return;
-  
-  isSubmitting.value = true;
-  
+  if (!validateForm()) return
+
+  isSubmitting.value = true
+
   try {
-    const updated = await profileApi.updateProfile({
+    await userStore.saveProfile({
       username: form.username,
       email: form.email,
       phone: form.phone || undefined,
@@ -403,37 +408,24 @@ const handleSubmit = async () => {
       bio: form.bio,
       gamePreference: form.gamePreference
     })
+    loadFormFromStore()
+    isEditing.value = false
+    Object.keys(errors).forEach((key) => {
+      errors[key as keyof typeof errors] = ''
+    })
 
-    // 同步到本地：其他页面展示依赖 delta_user
-    const updatedUser = {
-      username: updated.username,
-      avatar: updated.avatar,
-      email: updated.email,
-      phone: updated.phone
-    }
-    const remember = !!localStorage.getItem('delta_token')
-    setAuthUser(updatedUser, remember)
-    currentUser.value = { username: updated.username }
-    
-    // 切换到查看模式
-    toggleEditMode();
-    
-    // 显示成功提示
-    showSuccessToast.value = true;
-    successMessage.value = '个人资料更新成功';
-    
-    // 3秒后隐藏提示
+    showSuccessToast.value = true
+    successMessage.value = '个人资料更新成功'
     setTimeout(() => {
-      showSuccessToast.value = false;
-    }, 3000);
-    
+      showSuccessToast.value = false
+    }, 3000)
   } catch (error) {
-    console.error('更新资料失败:', error);
-    alert('更新资料失败，请稍后重试');
+    console.error('更新资料失败:', error)
+    alert('更新资料失败，请稍后重试')
   } finally {
-    isSubmitting.value = false;
+    isSubmitting.value = false
   }
-};
+}
 
 // 处理绑定手机
 const handleBindPhone = () => {
@@ -445,16 +437,6 @@ const handleBindPhone = () => {
 const maskPhone = (phone: string) => {
   if (!phone) return '';
   return phone.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1****$3');
-};
-
-// 处理登出
-const handleLogout = () => {
-  // 清除存储的登录信息
-  removeAuthToken();
-  removeAuthUser();
-  
-  // 跳转到登录页
-  router.push('/login');
 };
 
 // 页面加载时初始化

@@ -170,6 +170,7 @@ import { ref, reactive, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { authApi } from '../api/authApi';
 import { setAuthToken, setAuthUser } from '../api/token';
+import { useUserStore } from '../stores/user';
 
 // 路由实例
 const router = useRouter();
@@ -284,6 +285,13 @@ const handleLogin = async () => {
     // 存储登录状态（记住我 / 仅本会话）
     setAuthToken(resp.token, form.rememberMe)
     setAuthUser(resp.user, form.rememberMe)
+
+    const userStore = useUserStore()
+    try {
+      await userStore.loadUserFromServer()
+    } catch {
+      /* 兼容仅返回基础 user 的场景 */
+    }
     
     // 登录成功后优先回跳 redirect，未提供时进入首页
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''

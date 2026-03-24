@@ -11,6 +11,16 @@ const profileSeedTyped = profileSeed;
 let notifications = clone(notificationsSeedTyped);
 let orders = clone(ordersSeedTyped);
 let profile = clone(profileSeedTyped);
+const initialSettings = {
+    nickname: '三角洲精英',
+    bio: profileSeedTyped.bio || '',
+    notifyChannels: 'app,email',
+    notifyTypes: 'order,system,message,security',
+    wechat: 'wx_demo_bound',
+    qq: '',
+    weibo: ''
+};
+let accountSettings = clone(initialSettings);
 export const mockDb = {
     notification: {
         getAll() {
@@ -109,6 +119,9 @@ export const mockDb = {
                 ...profile,
                 ...payload
             };
+            if (payload.bio !== undefined) {
+                accountSettings = { ...accountSettings, bio: profile.bio };
+            }
             return { ...profile };
         },
         applyLoginUser(username) {
@@ -120,6 +133,18 @@ export const mockDb = {
                 email: `user_${safeUsername.replace(/\s+/g, '').toLowerCase()}@example.com`
             };
             return { ...profile };
+        }
+    },
+    accountSettings: {
+        get() {
+            return { ...accountSettings, bio: profile.bio };
+        },
+        update(payload) {
+            accountSettings = { ...accountSettings, ...payload };
+            if (payload.bio !== undefined) {
+                profile = { ...profile, bio: payload.bio };
+            }
+            return { ...accountSettings, bio: profile.bio };
         }
     }
 };

@@ -1,11 +1,7 @@
 <template>
   <div class="account-settings-page">
     <!-- 头部导航 -->
-    <Header 
-      :current-user="userInfo" 
-      :user-avatar="userInfo.avatar"
-      @logout="handleLogout"
-    />
+    <Header />
 
     <!-- 主内容区 -->
     <main class="page-content">
@@ -80,7 +76,7 @@
                     <label class="form-label">头像</label>
                     <div class="avatar-uploader">
                       <div class="avatar-preview">
-                        <img :src="profileForm.avatar" alt="用户头像" class="avatar-img">
+                        <img :src="profileAvatarDisplay" alt="用户头像" class="avatar-img">
                       </div>
                       <div class="avatar-actions">
                         <label class="upload-btn">
@@ -97,7 +93,7 @@
                           type="button" 
                           class="reset-btn"
                           @click="resetAvatar"
-                          :disabled="profileForm.avatar === userInfo.avatar"
+                          :disabled="profileForm.avatar === (userStore.profile?.avatar || '')"
                         >
                           <i class="fa fa-times"></i>
                           <span>恢复原图</span>
@@ -355,12 +351,12 @@
                         type="checkbox" 
                         v-model="notifySettings.channels.email"
                         class="channel-checkbox"
-                        :disabled="!userInfo.email"
+                        :disabled="!userStore.profile?.email"
                       >
                       <span class="channel-name">邮件通知</span>
                     </label>
                     <p class="channel-desc">通过邮箱接收重要通知（如订单状态变更、账号安全提醒）</p>
-                    <p class="channel-disabled" v-if="!userInfo.email">需先完善邮箱信息才能开启</p>
+                    <p class="channel-disabled" v-if="!userStore.profile?.email">需先完善邮箱信息才能开启</p>
                   </div>
                   
                   <div class="channel-item">
@@ -736,33 +732,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '../stores/user'
+import { profileApi } from '../api/profileApi'
+import { removeAuthToken, removeAuthUser } from '../api/token'
+import { resolvePublicFileUrl } from '../api/publicUrl'
 
-// 导入组件
-import Header from '../layouts/Header.vue';
-import Footer from '../layouts/Footer.vue';
+import Header from '../layouts/Header.vue'
+import Footer from '../layouts/Footer.vue'
 
-// 路由实例
-const router = useRouter();
+const router = useRouter()
+const userStore = useUserStore()
+
+const DEFAULT_AVATAR = 'https://picsum.photos/id/237/200/200'
 
 // 活跃选项卡
-const activeTab = ref('profile'); // profile/security/notification/connections/danger
+const activeTab = ref('profile') // profile/security/notification/connections/danger
 
-// 模拟基础用户信息
-const userInfo = ref({
-  username: 'delta_player_01',
-  nickname: '三角洲精英',
-  email: 'player01@example.com',
-  avatar: 'https://picsum.photos/id/237/200/200',
-  bio: '热爱射击游戏，擅长团队协作，追求高效护航服务'
-});
-
-// 模拟安全设置数据
 const securityInfo = ref({
-  phone: '13800138000', // 已绑定手机号（模拟）
+  phone: '',
   passwordUpdatedAt: '2023-09-15'
-});
+})
 
 // 模拟通知设置数据
 const notifySettings = ref({
@@ -779,21 +770,11 @@ const notifySettings = ref({
   }
 });
 
-// 模拟第三方账号关联数据
 const connections = ref({
-  wechat: {
-    bound: true,
-    nickname: '微信用户12345'
-  },
-  qq: {
-    bound: false,
-    nickname: ''
-  },
-  weibo: {
-    bound: false,
-    nickname: ''
-  }
-});
+  wechat: { bound: false, nickname: '' },
+  qq: { bound: false, nickname: '' },
+  weibo: { bound: false, nickname: '' }
+})
 
 // 处理状态
 const isProcessing = reactive({
@@ -883,32 +864,89 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   }, 3000);
 };
 
-// 初始化表单数据
-const initFormData = () => {
-  profileForm.username = userInfo.value.username;
-  profileForm.nickname = userInfo.value.nickname;
-  profileForm.email = userInfo.value.email;
-  profileForm.avatar = userInfo.value.avatar;
-  profileForm.bio = userInfo.value.bio;
-};
+/** 头像预览（支持相对路径 + 后端上传后的 URL） */
+const profileAvatarDisplay = computed(() => {
+  const raw = profileForm.avatar?.trim()
+  if (!raw) return userStore.resolvedAvatarUrl
+  if (raw.startsWith('data:') || raw.startsWith('http')) return raw
+  return resolvePublicFileUrl(raw) || DEFAULT_AVATAR
+})
 
-// 1. 个人信息相关方法
-// 预览头像
-const previewAvatar = (e: Event) => {
-  const input = e.target as HTMLInputElement;
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      profileForm.avatar = event.target?.result as string;
-    };
-    reader.readAsDataURL(input.files[0]);
+const syncConnectionsFromStore = () => {
+  const s = userStore.settings
+  if (!s) return
+  const w = s.wechat?.trim()
+  const q = s.qq?.trim()
+  const b = s.weibo?.trim()
+  connections.value = {
+    wechat: { bound: !!w, nickname: w || '' },
+    qq: { bound: !!q, nickname: q || '' },
+    weibo: { bound: !!b, nickname: b || '' }
   }
-};
+}
 
-// 重置头像
+const syncNotifyFromStore = () => {
+  const s = userStore.settings?.notifyChannels || 'app,email'
+  const t = userStore.settings?.notifyTypes || 'order,system,message'
+  const ch = s.split(',').map((x) => x.trim())
+  const ty = t.split(',').map((x) => x.trim())
+  notifySettings.value = {
+    channels: {
+      app: ch.includes('app'),
+      email: ch.includes('email'),
+      sms: ch.includes('sms')
+    },
+    types: {
+      order: ty.includes('order'),
+      message: ty.includes('message') || ty.includes('system'),
+      promotion: ty.includes('promotion'),
+      security: ty.includes('security')
+    }
+  }
+}
+
+// 初始化表单数据（与个人资料页共用 store）
+const initFormData = () => {
+  const p = userStore.profile
+  const st = userStore.settings
+  if (!p) return
+  profileForm.username = p.username
+  profileForm.nickname = st?.nickname || ''
+  profileForm.email = p.email
+  profileForm.avatar = p.avatar || ''
+  profileForm.bio = p.bio || st?.bio || ''
+  securityInfo.value.phone = p.phone || ''
+}
+
+// 选择文件后立即上传，与「个人资料」页行为一致
+const previewAvatar = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    showToast('请选择图片文件', 'error')
+    input.value = ''
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('图片请小于 2MB', 'error')
+    input.value = ''
+    return
+  }
+  try {
+    await userStore.uploadAvatarFile(file)
+    initFormData()
+    showToast('头像已上传')
+  } catch {
+    showToast('头像上传失败', 'error')
+  } finally {
+    input.value = ''
+  }
+}
+
 const resetAvatar = () => {
-  profileForm.avatar = userInfo.value.avatar;
-};
+  profileForm.avatar = userStore.profile?.avatar || ''
+}
 
 // 验证个人信息表单
 const validateProfileForm = (): boolean => {
@@ -930,28 +968,31 @@ const validateProfileForm = (): boolean => {
   return isValid;
 };
 
-// 保存个人信息
+// 保存个人信息：资料走 /profile，昵称等走 /account-settings
 const saveProfile = async () => {
-  if (!validateProfileForm()) return;
+  if (!validateProfileForm()) return
 
   try {
-    isSaving.value = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    // 模拟保存成功
-    userInfo.value.username = profileForm.username;
-    userInfo.value.nickname = profileForm.nickname;
-    userInfo.value.avatar = profileForm.avatar;
-    userInfo.value.bio = profileForm.bio;
-
-    showToast('个人信息保存成功');
-  } catch (error) {
-    showToast('保存失败，请稍后重试', 'error');
+    isSaving.value = true
+    await userStore.saveProfile({
+      username: profileForm.username,
+      email: profileForm.email,
+      bio: profileForm.bio,
+      avatar: profileForm.avatar
+    })
+    await userStore.saveAccountSettings({
+      nickname: profileForm.nickname,
+      bio: profileForm.bio
+    })
+    initFormData()
+    syncConnectionsFromStore()
+    showToast('个人信息保存成功')
+  } catch {
+    showToast('保存失败，请稍后重试', 'error')
   } finally {
-    isSaving.value = false;
+    isSaving.value = false
   }
-};
+}
 
 // 重置个人信息表单
 const resetProfileForm = () => {
@@ -971,13 +1012,9 @@ const validatePasswordForm = (): boolean => {
   passwordErrors.newPwd = '';
   passwordErrors.confirmPwd = '';
 
-  // 验证当前密码（模拟：当前密码固定为123456Aa）
   if (!passwordForm.currentPwd) {
-    passwordErrors.currentPwd = '请输入当前密码';
-    isValid = false;
-  } else if (passwordForm.currentPwd !== '123456Aa') {
-    passwordErrors.currentPwd = '当前密码输入错误';
-    isValid = false;
+    passwordErrors.currentPwd = '请输入当前密码'
+    isValid = false
   }
 
   // 验证新密码
@@ -1001,35 +1038,31 @@ const validatePasswordForm = (): boolean => {
   return isValid;
 };
 
-// 修改密码
+// 修改密码（对接后端，成功后清除登录态）
 const changePassword = async () => {
-  if (!validatePasswordForm()) return;
+  if (!validatePasswordForm()) return
 
   try {
-    isChangingPwd.value = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // 模拟修改成功
-    securityInfo.value.passwordUpdatedAt = new Date().toISOString().split('T')[0];
-    
-    // 重置表单
-    passwordForm.currentPwd = '';
-    passwordForm.newPwd = '';
-    passwordForm.confirmPwd = '';
-
-    showToast('密码修改成功，请重新登录');
-    
-    // 2秒后跳转登录页
+    isChangingPwd.value = true
+    await profileApi.changePassword(passwordForm.currentPwd, passwordForm.newPwd)
+    securityInfo.value.passwordUpdatedAt = new Date().toISOString().split('T')[0]
+    passwordForm.currentPwd = ''
+    passwordForm.newPwd = ''
+    passwordForm.confirmPwd = ''
+    showToast('密码修改成功，请重新登录')
     setTimeout(() => {
-      handleLogout();
-    }, 2000);
-  } catch (error) {
-    showToast('密码修改失败，请稍后重试', 'error');
+      userStore.clear()
+      removeAuthToken()
+      removeAuthUser()
+      router.push('/login')
+    }, 1600)
+  } catch {
+    passwordErrors.currentPwd = '当前密码不正确或服务异常'
+    showToast('密码修改失败，请检查当前密码', 'error')
   } finally {
-    isChangingPwd.value = false;
+    isChangingPwd.value = false
   }
-};
+}
 
 // 重置密码表单
 const resetPasswordForm = () => {
@@ -1120,56 +1153,43 @@ const sendChangePhoneCode = () => {
   sendVerificationCode(true);
 };
 
-// 绑定手机
+// 绑定手机（验证码仍为演示；手机号写入资料库并与个人资料互通）
 const bindPhone = async () => {
-  if (!validatePhoneForm()) return;
+  if (!validatePhoneForm()) return
 
   try {
-    isBindingPhone.value = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    // 模拟绑定成功
-    securityInfo.value.phone = phoneForm.phone;
-    
-    // 重置表单
-    phoneForm.phone = '';
-    phoneForm.code = '';
-    countdown.value = 0;
-
-    showToast('手机号绑定成功');
-  } catch (error) {
-    showToast('绑定失败，请稍后重试', 'error');
+    isBindingPhone.value = true
+    await userStore.saveProfile({ phone: phoneForm.phone })
+    securityInfo.value.phone = phoneForm.phone
+    phoneForm.phone = ''
+    phoneForm.code = ''
+    countdown.value = 0
+    showToast('手机号绑定成功')
+  } catch {
+    showToast('绑定失败，请稍后重试', 'error')
   } finally {
-    isBindingPhone.value = false;
+    isBindingPhone.value = false
   }
-};
+}
 
-// 更换手机号
 const changePhone = async () => {
-  if (!validatePhoneForm(true)) return;
+  if (!validatePhoneForm(true)) return
 
   try {
-    isChangingPhone.value = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // 模拟更换成功
-    securityInfo.value.phone = phoneForm.newPhone;
-    showChangePhone.value = false;
-    
-    // 重置表单
-    phoneForm.newPhone = '';
-    phoneForm.changeCode = '';
-    countdown.value = 0;
-
-    showToast('手机号更换成功');
-  } catch (error) {
-    showToast('更换失败，请稍后重试', 'error');
+    isChangingPhone.value = true
+    await userStore.saveProfile({ phone: phoneForm.newPhone })
+    securityInfo.value.phone = phoneForm.newPhone
+    showChangePhone.value = false
+    phoneForm.newPhone = ''
+    phoneForm.changeCode = ''
+    countdown.value = 0
+    showToast('手机号更换成功')
+  } catch {
+    showToast('更换失败，请稍后重试', 'error')
   } finally {
-    isChangingPhone.value = false;
+    isChangingPhone.value = false
   }
-};
+}
 
 // 手机号掩码（中间4位隐藏）
 const maskPhone = (phone: string) => {
@@ -1178,136 +1198,119 @@ const maskPhone = (phone: string) => {
 };
 
 // 3. 通知设置相关方法
-// 保存通知设置
 const saveNotifySettings = async () => {
-  try {
-    isSavingNotify.value = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  const ch: string[] = []
+  if (notifySettings.value.channels.app) ch.push('app')
+  if (notifySettings.value.channels.email) ch.push('email')
+  if (notifySettings.value.channels.sms) ch.push('sms')
+  const ty: string[] = []
+  if (notifySettings.value.types.order) ty.push('order')
+  if (notifySettings.value.types.message) ty.push('message')
+  if (notifySettings.value.types.promotion) ty.push('promotion')
+  if (notifySettings.value.types.security) ty.push('security')
 
-    // 模拟保存成功（无需修改数据，表单已双向绑定）
-    showToast('通知设置保存成功');
-  } catch (error) {
-    showToast('保存失败，请稍后重试', 'error');
+  try {
+    isSavingNotify.value = true
+    await userStore.saveAccountSettings({
+      notifyChannels: ch.join(',') || 'app',
+      notifyTypes: ty.join(',') || 'order'
+    })
+    syncNotifyFromStore()
+    showToast('通知设置保存成功')
+  } catch {
+    showToast('保存失败，请稍后重试', 'error')
   } finally {
-    isSavingNotify.value = false;
+    isSavingNotify.value = false
   }
-};
+}
 
 // 4. 账号关联相关方法
-// 关联微信
 const handleWechatBind = async () => {
   try {
-    isProcessing.wechat = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // 模拟关联成功
-    connections.value.wechat.bound = true;
-    connections.value.wechat.nickname = '微信用户12345';
-    showToast('微信账号关联成功');
-  } catch (error) {
-    showToast('关联失败，请稍后重试', 'error');
+    isProcessing.wechat = true
+    await new Promise((r) => setTimeout(r, 800))
+    const label = '微信用户' + Math.floor(10000 + Math.random() * 90000)
+    connections.value.wechat = { bound: true, nickname: label }
+    await userStore.saveAccountSettings({ wechat: label })
+    showToast('微信账号关联成功')
+  } catch {
+    showToast('关联失败，请稍后重试', 'error')
   } finally {
-    isProcessing.wechat = false;
+    isProcessing.wechat = false
   }
-};
+}
 
-// 解除微信关联
 const handleWechatUnbind = async () => {
-  if (!confirm('确定要解除微信账号关联吗？')) return;
-  
+  if (!confirm('确定要解除微信账号关联吗？')) return
   try {
-    isProcessing.wechat = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // 模拟解除成功
-    connections.value.wechat.bound = false;
-    connections.value.wechat.nickname = '';
-    showToast('微信账号关联已解除');
-  } catch (error) {
-    showToast('解除失败，请稍后重试', 'error');
+    isProcessing.wechat = true
+    connections.value.wechat = { bound: false, nickname: '' }
+    await userStore.saveAccountSettings({ wechat: '' })
+    showToast('微信账号关联已解除')
+  } catch {
+    showToast('解除失败，请稍后重试', 'error')
   } finally {
-    isProcessing.wechat = false;
+    isProcessing.wechat = false
   }
-};
+}
 
-// 关联QQ
 const handleQqBind = async () => {
   try {
-    isProcessing.qq = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // 模拟关联成功
-    connections.value.qq.bound = true;
-    connections.value.qq.nickname = 'QQ用户67890';
-    showToast('QQ账号关联成功');
-  } catch (error) {
-    showToast('关联失败，请稍后重试', 'error');
+    isProcessing.qq = true
+    await new Promise((r) => setTimeout(r, 800))
+    const label = 'QQ用户' + Math.floor(10000 + Math.random() * 90000)
+    connections.value.qq = { bound: true, nickname: label }
+    await userStore.saveAccountSettings({ qq: label })
+    showToast('QQ账号关联成功')
+  } catch {
+    showToast('关联失败，请稍后重试', 'error')
   } finally {
-    isProcessing.qq = false;
+    isProcessing.qq = false
   }
-};
+}
 
-// 解除QQ关联
 const handleQqUnbind = async () => {
-  if (!confirm('确定要解除QQ账号关联吗？')) return;
-  
+  if (!confirm('确定要解除QQ账号关联吗？')) return
   try {
-    isProcessing.qq = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // 模拟解除成功
-    connections.value.qq.bound = false;
-    connections.value.qq.nickname = '';
-    showToast('QQ账号关联已解除');
-  } catch (error) {
-    showToast('解除失败，请稍后重试', 'error');
+    isProcessing.qq = true
+    connections.value.qq = { bound: false, nickname: '' }
+    await userStore.saveAccountSettings({ qq: '' })
+    showToast('QQ账号关联已解除')
+  } catch {
+    showToast('解除失败，请稍后重试', 'error')
   } finally {
-    isProcessing.qq = false;
+    isProcessing.qq = false
   }
-};
+}
 
-// 关联微博
 const handleWeiboBind = async () => {
   try {
-    isProcessing.weibo = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // 模拟关联成功
-    connections.value.weibo.bound = true;
-    connections.value.weibo.nickname = '微博用户54321';
-    showToast('微博账号关联成功');
-  } catch (error) {
-    showToast('关联失败，请稍后重试', 'error');
+    isProcessing.weibo = true
+    await new Promise((r) => setTimeout(r, 800))
+    const label = '微博用户' + Math.floor(10000 + Math.random() * 90000)
+    connections.value.weibo = { bound: true, nickname: label }
+    await userStore.saveAccountSettings({ weibo: label })
+    showToast('微博账号关联成功')
+  } catch {
+    showToast('关联失败，请稍后重试', 'error')
   } finally {
-    isProcessing.weibo = false;
+    isProcessing.weibo = false
   }
-};
+}
 
-// 解除微博关联
 const handleWeiboUnbind = async () => {
-  if (!confirm('确定要解除微博账号关联吗？')) return;
-  
+  if (!confirm('确定要解除微博账号关联吗？')) return
   try {
-    isProcessing.weibo = true;
-    // 模拟接口请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // 模拟解除成功
-    connections.value.weibo.bound = false;
-    connections.value.weibo.nickname = '';
-    showToast('微博账号关联已解除');
-  } catch (error) {
-    showToast('解除失败，请稍后重试', 'error');
+    isProcessing.weibo = true
+    connections.value.weibo = { bound: false, nickname: '' }
+    await userStore.saveAccountSettings({ weibo: '' })
+    showToast('微博账号关联已解除')
+  } catch {
+    showToast('解除失败，请稍后重试', 'error')
   } finally {
-    isProcessing.weibo = false;
+    isProcessing.weibo = false
   }
-};
+}
 
 // 5. 安全中心相关方法
 // 显示设备管理（模拟）
@@ -1322,11 +1325,9 @@ const confirmDeleteAccount = async () => {
     // 模拟接口请求延迟
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // 模拟注销成功（清除本地存储）
-    localStorage.removeItem('delta_token');
-    localStorage.removeItem('delta_user');
-    sessionStorage.removeItem('delta_token');
-    sessionStorage.removeItem('delta_user');
+    userStore.clear()
+    removeAuthToken()
+    removeAuthUser()
 
     showToast('账号注销申请已提交，30天后将永久删除', 'success');
     // 2秒后跳转登录页
@@ -1342,19 +1343,17 @@ const confirmDeleteAccount = async () => {
   }
 };
 
-// 处理登出
-const handleLogout = () => {
-  localStorage.removeItem('delta_token');
-  localStorage.removeItem('delta_user');
-  sessionStorage.removeItem('delta_token');
-  sessionStorage.removeItem('delta_user');
-  router.push('/login');
-};
-
-// 页面加载初始化
-onMounted(() => {
-  initFormData();
-});
+// 页面加载：拉取与个人资料一致的数据源
+onMounted(async () => {
+  try {
+    await userStore.loadUserFromServer()
+  } catch {
+    /* token 失效等 */
+  }
+  initFormData()
+  syncNotifyFromStore()
+  syncConnectionsFromStore()
+})
 </script>
 
 <style scoped>

@@ -40,8 +40,8 @@
           <!-- 用户头像 -->
           <div class="user-profile">
             <button class="profile-btn" @click="toggleProfileMenu">
-              <img :src="userAvatar" alt="用户头像" class="avatar-img">
-              <span class="user-name">{{ currentUser?.username }}</span>
+              <img :src="displayAvatar" alt="用户头像" class="avatar-img">
+              <span class="user-name">{{ displayName }}</span>
               <i class="fa fa-chevron-down" :class="{ 'rotate-180': profileMenuOpen }"></i>
             </button>
             
@@ -110,73 +110,65 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { defineProps, defineEmits } from 'vue';
-import NotificationDropdown from '../components/NotificationDropdown.vue';// 导入通知组件
+import { computed, ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import NotificationDropdown from '../components/NotificationDropdown.vue'
+import { useUserStore } from '../stores/user'
+import { removeAuthToken, removeAuthUser } from '../api/token'
 
-// 定义props
-const props = defineProps({
-  currentUser: {
-    type: Object,
-    required: true,
-    default: () => ({ username: '' })
-  },
-  userAvatar: {
-    type: String,
-    default: 'https://picsum.photos/id/237/200/200'
-  }
-});
+// 可选覆盖（少数页面仍可传入）；默认使用全局用户仓库，保证全站一致
+const props = defineProps<{
+  currentUser?: { username?: string }
+  userAvatar?: string
+}>()
 
-// 定义事件
-const emit = defineEmits(['logout']);
+const emit = defineEmits<{ logout: [] }>()
 
-// 路由实例
-const router = useRouter();
+const router = useRouter()
+const userStore = useUserStore()
 
-// 判断当前路由是否匹配指定路径
+const displayName = computed(() => props.currentUser?.username?.trim() || userStore.displayName)
+const displayAvatar = computed(() => props.userAvatar?.trim() || userStore.resolvedAvatarUrl)
+
+const profileMenuOpen = ref(false)
+const mobileMenuOpen = ref(false)
+
 const isCurrentRoute = (path: string) => {
-// 修正判断方法（添加类型断言，解决TS类型检查问题）
-  const currentPath = router.currentRoute.value.path as string; // 类型断言
-  return currentPath === path || currentPath.startsWith(path + '/');
-};
+  const currentPath = router.currentRoute.value.path as string
+  return currentPath === path || currentPath.startsWith(path + '/')
+}
 
-// 菜单状态
-const profileMenuOpen = ref(false);
-const mobileMenuOpen = ref(false);
-
-// 切换个人菜单
 const toggleProfileMenu = () => {
-  profileMenuOpen.value = !profileMenuOpen.value;
-};
+  profileMenuOpen.value = !profileMenuOpen.value
+}
 
-// 切换移动端菜单
 const toggleMobileMenu = () => {
-  mobileMenuOpen.value = !mobileMenuOpen.value;
-};
+  mobileMenuOpen.value = !mobileMenuOpen.value
+}
 
-// 关闭移动端菜单
 const closeMobileMenu = () => {
-  mobileMenuOpen.value = false;
-};
+  mobileMenuOpen.value = false
+}
 
-// 处理登出
 const handleLogout = () => {
-  emit('logout');
-  profileMenuOpen.value = false;
-};
+  userStore.clear()
+  removeAuthToken()
+  removeAuthUser()
+  emit('logout')
+  profileMenuOpen.value = false
+  router.push('/login')
+}
 
-// 点击页面其他区域关闭菜单
 onMounted(() => {
   document.addEventListener('click', (e) => {
-    const profileBtn = document.querySelector('.profile-btn');
-    const profileMenu = document.querySelector('.profile-menu');
+    const profileBtn = document.querySelector('.profile-btn')
+    const profileMenu = document.querySelector('.profile-menu')
     
     if (profileBtn && profileMenu && !profileBtn.contains(e.target as Node) && !profileMenu.contains(e.target as Node)) {
-      profileMenuOpen.value = false;
+      profileMenuOpen.value = false
     }
-  });
-});
+  })
+})
 </script>
 
 <style scoped>
@@ -212,21 +204,26 @@ onMounted(() => {
 .logo-text {
   font-size: 1.25rem;
   font-weight: 700;
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #f3f4f6;
 }
 
 /* 主导航 */
 .main-nav {
-  margin: 0 1rem;
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .main-nav {
+    display: block;
+  }
 }
 
 .nav-list {
   display: flex;
   list-style: none;
-  gap: 0.5rem;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
 }
 
 .nav-item {
@@ -235,17 +232,18 @@ onMounted(() => {
 
 .nav-link {
   display: block;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
   color: #9ca3af;
   text-decoration: none;
+  font-size: 0.9rem;
   font-weight: 500;
-  transition: all 0.3s ease;
   border-radius: 0.375rem;
+  transition: color 0.2s, background-color 0.2s;
 }
 
 .nav-link:hover {
-  color: #3b82f6;
-  background-color: rgba(55, 65, 81, 0.2);
+  color: #f3f4f6;
+  background-color: rgba(55, 65, 81, 0.5);
 }
 
 .nav-item.active .nav-link {
@@ -253,25 +251,13 @@ onMounted(() => {
   background-color: rgba(59, 130, 246, 0.1);
 }
 
-.nav-item.active .nav-link::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: #3b82f6;
-  border-radius: 2px 2px 0 0;
-}
-
 /* 用户区域 */
 .user-area {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
-/* 用户头像区域样式保持不变 */
 .user-profile {
   position: relative;
 }
@@ -280,211 +266,171 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: none;
-  border: none;
-  color: #f3f4f6;
-  cursor: pointer;
   padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
-  transition: background-color 0.3s ease;
+  background: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  color: #f3f4f6;
+  transition: background-color 0.2s;
 }
 
 .profile-btn:hover {
-  background-color: rgba(55, 65, 81, 0.2);
+  background-color: rgba(55, 65, 81, 0.5);
 }
 
 .avatar-img {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  border: 2px solid rgba(59, 130, 246, 0.5);
 }
 
 .user-name {
+  font-size: 0.875rem;
   font-weight: 500;
-  display: none;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-@media (min-width: 768px) {
-  .user-name {
-    display: block;
-  }
-}
-
-.profile-btn i {
+.profile-btn .fa-chevron-down {
+  font-size: 0.65rem;
   color: #9ca3af;
-  font-size: 0.75rem;
-  transition: transform 0.3s ease;
+  transition: transform 0.2s;
 }
 
 .rotate-180 {
   transform: rotate(180deg);
 }
 
-/* 个人资料下拉菜单 */
+/* 下拉菜单 */
 .profile-menu {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 0.5rem);
   right: 0;
-  min-width: 15rem;
+  min-width: 12rem;
   background-color: #1f2937;
+  border: 1px solid rgba(55, 65, 81, 0.8);
   border-radius: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(55, 65, 81, 0.5);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  padding: 0.5rem 0;
   z-index: 100;
-  margin-top: 0.5rem;
-  overflow: hidden;
-  animation: fadeIn 0.2s ease;
 }
 
 .menu-list {
   list-style: none;
-}
-
-.menu-item {
-  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
-}
-
-.menu-item:last-child {
-  border-bottom: none;
+  margin: 0;
+  padding: 0;
 }
 
 .menu-item.divider {
-  border-bottom: 1px solid rgba(55, 65, 81, 0.5);
+  height: 1px;
+  margin: 0.5rem 0;
+  background-color: rgba(55, 65, 81, 0.8);
   padding: 0;
-  margin: 0.25rem 0;
 }
 
 .menu-link {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  color: #d1d5db;
-  text-decoration: none;
-  transition: all 0.3s ease;
+  gap: 0.5rem;
   width: 100%;
+  padding: 0.625rem 1rem;
+  color: #e5e7eb;
+  text-decoration: none;
+  font-size: 0.875rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s;
 }
 
 .menu-link:hover {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background-color: rgba(55, 65, 81, 0.6);
 }
 
 .menu-link i {
   width: 1.25rem;
-  text-align: center;
   color: #9ca3af;
-  transition: color 0.3s ease;
-}
-
-.menu-link:hover i {
-  color: #3b82f6;
 }
 
 .logout-link {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
+  color: #f87171;
 }
 
 .logout-link i {
-  color: #ef4444;
-}
-
-.logout-link:hover {
-  color: #ef4444;
-}
-
-.logout-link:hover i {
-  color: #ef4444;
+  color: #f87171;
 }
 
 /* 移动端菜单按钮 */
 .mobile-menu-btn {
-  background: none;
-  border: none;
-  color: #9ca3af;
-  font-size: 1.25rem;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 2.5rem;
   height: 2.5rem;
+  background: transparent;
+  border: none;
+  color: #f3f4f6;
+  font-size: 1.25rem;
+  cursor: pointer;
   border-radius: 0.375rem;
-  transition: all 0.3s ease;
 }
 
 .mobile-menu-btn:hover {
-  color: #3b82f6;
-  background-color: rgba(55, 65, 81, 0.2);
-}
-
-.desktop-nav {
-  display: none;
+  background-color: rgba(55, 65, 81, 0.5);
 }
 
 @media (min-width: 1024px) {
-  .desktop-nav {
-    display: block;
-  }
-  
   .mobile-menu-btn {
     display: none;
   }
 }
 
-/* 移动端导航菜单 */
+/* 移动端导航 */
 .mobile-nav {
-  background-color: #1f2937;
+  display: block;
   border-top: 1px solid rgba(55, 65, 81, 0.5);
-  animation: slideDown 0.3s ease;
+  background-color: rgba(17, 24, 39, 0.95);
+  padding: 0.5rem 0;
+}
+
+@media (min-width: 1024px) {
+  .mobile-nav {
+    display: none;
+  }
 }
 
 .mobile-nav-list {
   list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .mobile-nav-item {
   border-bottom: 1px solid rgba(55, 65, 81, 0.3);
 }
 
-.mobile-nav-item:last-child {
-  border-bottom: none;
-}
-
 .mobile-nav-link {
   display: block;
-  padding: 1rem;
+  padding: 0.875rem 1rem;
   color: #d1d5db;
   text-decoration: none;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.mobile-nav-link:hover {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  font-size: 0.95rem;
 }
 
 .mobile-nav-item.active .mobile-nav-link {
   color: #3b82f6;
-  background-color: rgba(59, 130, 246, 0.1);
 }
 
-/* 动画 */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+.container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem;
 }
 </style>
-    

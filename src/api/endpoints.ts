@@ -12,7 +12,14 @@ export const API_ENDPOINTS = {
     cancel: (orderId: string) => `/orders/${encodeURIComponent(orderId)}/cancel`
   },
   profile: {
-    detail: '/profile'
+    detail: '/profile',
+    avatar: '/profile/avatar',
+    /** Mock 模式：Base64 传图 */
+    avatarData: '/profile/avatar-data',
+    changePassword: '/profile/change-password'
+  },
+  accountSettings: {
+    root: '/account-settings'
   },
   notifications: {
     list: '/notifications',

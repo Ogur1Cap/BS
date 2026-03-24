@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { library } from '@fortawesome/fontawesome-svg-core'
@@ -32,6 +33,8 @@ const app = createApp(App)
 // 注册FontAwesome组件
 app.component('FontAwesomeIcon', FontAwesomeIcon)
 
+const pinia = createPinia()
+app.use(pinia)
 // 使用路由
 app.use(router)
 

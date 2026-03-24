@@ -1,4 +1,11 @@
-export type StoredUser = { username?: string; avatar?: string; email?: string; phone?: string }
+export type StoredUser = {
+  username?: string
+  /** 展示用昵称（来自账户设置） */
+  nickname?: string
+  avatar?: string
+  email?: string
+  phone?: string
+}
 
 const TOKEN_KEY = 'delta_token'
 const USER_KEY = 'delta_user'

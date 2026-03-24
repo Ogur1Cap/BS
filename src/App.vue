@@ -3,7 +3,20 @@
 </template>
 
 <script setup lang="ts">
-// 根组件逻辑
+import { onMounted } from 'vue'
+import { getAuthToken } from './api/token'
+import { useUserStore } from './stores/user'
+
+// 刷新页面后根据 token 拉取最新资料，避免 Header 与各页数据不一致
+onMounted(async () => {
+  if (!getAuthToken()) return
+  const userStore = useUserStore()
+  try {
+    await userStore.loadUserFromServer()
+  } catch {
+    /* 未登录或 token 失效时由后续请求处理 */
+  }
+})
 </script>
 
 <style>

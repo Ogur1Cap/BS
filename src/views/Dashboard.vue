@@ -1,19 +1,14 @@
 <template>
   <div class="dashboard-container">
     <!-- 头部导航 -->
-    <Header 
-      :current-user="currentUser" 
-      :user-avatar="userAvatar"
-      :unread-notifications="unreadNotifications"
-      @logout="handleLogout"
-    />
+    <Header />
 
     <!-- 主内容区域 -->
     <main class="main-content">
       <div class="container">
         <!-- 欢迎区域 -->
         <WelcomeBanner 
-          :username="currentUser?.username || ''"
+          :username="userStore.displayName"
           :completed-orders="completedOrders"
           :ongoing-orders="ongoingOrders"
           :user-level="userLevel"
@@ -92,6 +87,7 @@ import { useRouter } from 'vue-router';
 import { type Order } from '../components/Dashboard/OrderTable.vue';
 import { ordersApi } from '../api/ordersApi';
 import { GAME_LIST } from '../constants/games';
+import { useUserStore } from '../stores/user';
 
 // 导入组件
 import Header from '../layouts/Header.vue';
@@ -104,14 +100,11 @@ import OrderTable from '../components/Dashboard/OrderTable.vue';
 
 // 路由实例
 const router = useRouter();
+const userStore = useUserStore();
 
-// 用户信息
-const currentUser = ref<{ username: string } | undefined>(undefined);
-const userAvatar = ref('https://picsum.photos/id/237/200/200'); // 默认头像
 const userLevel = ref('白银会员');
 const completedOrders = computed(() => recentOrders.value.filter((order) => order.status === 'completed').length);
 const ongoingOrders = computed(() => recentOrders.value.filter((order) => order.status === 'ongoing').length);
-const unreadNotifications = ref(3);
 
 // 热门游戏数据
 const popularGames = ref(
@@ -127,29 +120,8 @@ const popularGames = ref(
 // 明确指定recentOrders的类型为Order[]
 const recentOrders = ref<Order[]>([]);
 
-// 处理登出
-const handleLogout = () => {
-  // 清除存储的登录信息
-  localStorage.removeItem('delta_token');
-  localStorage.removeItem('delta_user');
-  sessionStorage.removeItem('delta_token');
-  sessionStorage.removeItem('delta_user');
-  
-  // 跳转到登录页
-  router.push('/login');
-};
-
-// 页面加载时获取用户信息
+// 页面加载
 onMounted(() => {
-  // 从存储中获取用户信息
-  const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user');
-  if (userStr) {
-    currentUser.value = JSON.parse(userStr);
-  } else {
-    // 如果没有用户信息，跳转到登录页
-    router.push('/login');
-  }
-
   ordersApi
     .listOrders()
     .then((items) => {

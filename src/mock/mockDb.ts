@@ -4,6 +4,7 @@ import profileSeed from './data/profile.json'
 import type { Notification } from '../types/notification'
 import type { Order } from '../types/order'
 import type { Profile } from '../types/profile'
+import type { AccountSettings } from '../types/accountSettings'
 
 function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T
@@ -17,6 +18,18 @@ const profileSeedTyped = profileSeed as unknown as Profile
 let notifications = clone<Notification[]>(notificationsSeedTyped)
 let orders = clone<Order[]>(ordersSeedTyped)
 let profile = clone<Profile>(profileSeedTyped)
+
+const initialSettings: AccountSettings = {
+  nickname: '三角洲精英',
+  bio: profileSeedTyped.bio || '',
+  notifyChannels: 'app,email',
+  notifyTypes: 'order,system,message,security',
+  wechat: 'wx_demo_bound',
+  qq: '',
+  weibo: ''
+}
+
+let accountSettings = clone<AccountSettings>(initialSettings)
 
 export const mockDb = {
   notification: {
@@ -122,6 +135,9 @@ export const mockDb = {
         ...profile,
         ...payload
       }
+      if (payload.bio !== undefined) {
+        accountSettings = { ...accountSettings, bio: profile.bio }
+      }
       return { ...profile }
     },
     applyLoginUser(username: string): Profile {
@@ -133,6 +149,19 @@ export const mockDb = {
         email: `user_${safeUsername.replace(/\s+/g, '').toLowerCase()}@example.com`
       }
       return { ...profile }
+    }
+  },
+
+  accountSettings: {
+    get(): AccountSettings {
+      return { ...accountSettings, bio: profile.bio }
+    },
+    update(payload: Partial<AccountSettings>): AccountSettings {
+      accountSettings = { ...accountSettings, ...payload }
+      if (payload.bio !== undefined) {
+        profile = { ...profile, bio: payload.bio }
+      }
+      return { ...accountSettings, bio: profile.bio }
     }
   }
 }

@@ -95,6 +95,23 @@ export async function mockRequest(options) {
         const res = mockDb.profile.update(payload);
         return res;
     }
+    if (method === 'POST' && path === '/profile/avatar-data') {
+        const { dataUrl } = assertBody(options.body);
+        mockDb.profile.update({ avatar: dataUrl });
+        return { url: dataUrl };
+    }
+    if (method === 'POST' && path === '/profile/change-password') {
+        assertBody(options.body);
+        return undefined;
+    }
+    if (method === 'GET' && path === '/account-settings') {
+        return mockDb.accountSettings.get();
+    }
+    if (method === 'PUT' && path === '/account-settings') {
+        const payload = assertBody(options.body);
+        const res = mockDb.accountSettings.update(payload);
+        return res;
+    }
     // 如果未匹配到 mock 路由，直接抛错，方便你继续补齐接口
     throw new Error(`Mock: no handler for ${method} ${path}`);
 }

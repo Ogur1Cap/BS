@@ -2,6 +2,7 @@ import type { ApiRequestOptions } from '../api/request'
 import { mockDb } from './mockDb'
 import type { LoginResponse } from '../types/auth'
 import type { Profile } from '../types/profile'
+import type { AccountSettings } from '../types/accountSettings'
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -121,6 +122,27 @@ export async function mockRequest<T>(options: ApiRequestOptions): Promise<T> {
   if (method === 'PUT' && path === '/profile') {
     const payload = assertBody<Partial<Profile>>(options.body)
     const res = mockDb.profile.update(payload)
+    return res as unknown as T
+  }
+
+  if (method === 'POST' && path === '/profile/avatar-data') {
+    const { dataUrl } = assertBody<{ dataUrl: string }>(options.body)
+    mockDb.profile.update({ avatar: dataUrl })
+    return { url: dataUrl } as T
+  }
+
+  if (method === 'POST' && path === '/profile/change-password') {
+    assertBody<{ currentPassword: string; newPassword: string }>(options.body)
+    return undefined as T
+  }
+
+  if (method === 'GET' && path === '/account-settings') {
+    return mockDb.accountSettings.get() as unknown as T
+  }
+
+  if (method === 'PUT' && path === '/account-settings') {
+    const payload = assertBody<Partial<AccountSettings>>(options.body)
+    const res = mockDb.accountSettings.update(payload)
     return res as unknown as T
   }
 
