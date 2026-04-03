@@ -4,6 +4,15 @@ export const notificationsApi = {
     async getNotifications() {
         return apiRequest({ method: 'GET', path: API_ENDPOINTS.notifications.list, auth: true });
     },
+    /** 仅拉取未读数量（顶栏角标轮询） */
+    async getUnreadCount() {
+        const data = await apiRequest({
+            method: 'GET',
+            path: API_ENDPOINTS.notifications.unreadCount,
+            auth: true
+        });
+        return typeof data.count === 'number' ? data.count : 0;
+    },
     async markAsRead(notificationId) {
         return apiRequest({
             method: 'POST',

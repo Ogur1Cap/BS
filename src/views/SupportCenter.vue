@@ -342,6 +342,8 @@ import { useRouter } from 'vue-router';
 import Header from '../layouts/Header.vue';
 import Footer from '../layouts/Footer.vue';
 import FaqAccordionItem from '../components/Common/FaqAccordionItem.vue'; // 修复：Common首字母大写
+import { supportCenterApi } from '../api/supportCenterApi';
+import { isMockMode } from '../api/apiMode';
 
 // 路由实例
 const router = useRouter();
@@ -546,24 +548,44 @@ const getQueueStatus = () => {
   );
 };
 
-// 提交人工服务请求
-const submitHumanService = () => {
+// 提交人工服务请求（mock 延迟模拟；real 调用后端工单入库）
+const submitHumanService = async () => {
   isSubmitting.value = true;
-  
-  // 模拟提交（实际项目对接API）
-  setTimeout(() => {
-    isSubmitting.value = false;
+
+  if (isMockMode()) {
+    setTimeout(() => {
+      isSubmitting.value = false;
+      isSubmitted.value = true;
+      const date = new Date();
+      const dateStr =
+        date.getFullYear() +
+        String(date.getMonth() + 1).padStart(2, '0') +
+        String(date.getDate()).padStart(2, '0');
+      const randomStr = Math.floor(Math.random() * 10000)
+        .toString()
+        .padStart(4, '0');
+      serviceCode.value = `DELTA-SERVICE-${dateStr}${randomStr}`;
+      getQueueStatus();
+    }, 1500);
+    return;
+  }
+
+  try {
+    const res = await supportCenterApi.createTicket({
+      username: humanForm.value.username,
+      contact: humanForm.value.contact,
+      problemType: humanForm.value.problemType || 'other',
+      emergencyLevel: humanForm.value.emergencyLevel,
+      problemDesc: humanForm.value.problemDesc
+    });
+    serviceCode.value = `工单-${res.id}`;
     isSubmitted.value = true;
-    // 生成随机服务编号（DELTA-SERVICE-YYYYMMDDXXXX）
-    const date = new Date();
-    const dateStr = date.getFullYear() + 
-      String(date.getMonth() + 1).padStart(2, '0') + 
-      String(date.getDate()).padStart(2, '0');
-    const randomStr = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    serviceCode.value = `DELTA-SERVICE-${dateStr}${randomStr}`;
-    // 更新排队状态
     getQueueStatus();
-  }, 1500);
+  } catch (e) {
+    alert(e instanceof Error ? e.message : '提交失败，请稍后重试');
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 
 // 重置人工表单

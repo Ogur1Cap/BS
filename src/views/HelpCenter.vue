@@ -98,12 +98,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
 import Header from '../layouts/Header.vue';
 import Footer from '../layouts/Footer.vue';
 import FaqAccordionItem from '../components/Common/FaqAccordionItem.vue'; // 复用手风琴组件
+import { helpCenterApi } from '../api/helpCenterApi';
+import type { FaqItem } from '../types/faq';
 
 const router = useRouter();
 
@@ -116,54 +118,42 @@ const userAvatar = ref('https://picsum.photos/id/237/200/200');
 const searchKeyword = ref('');
 const activeCategory = ref<'order' | 'service' | 'account'>('order');
 
-// —— 简化版FAQ数据（聚焦核心问题，答案简洁） ——
-const faqData = ref({
-  // 订单问题（高频）
-  order: [
-    {
-      question: '怎么修改护航订单时间？',
-      answer: '进入“我的订单”→ 找到对应订单→ 点击“修改时间”→ 选择新时间提交（已接单需先和打手确认）'
-    },
-    {
-      question: '订单能取消退款吗？',
-      answer: '未接单：直接取消，全额退款（1-3天到账）；已接单未开始：扣5%手续费；已开始：按完成比例退'
-    },
-    {
-      question: '订单“待接单”要等多久？',
-      answer: '通常10-30分钟内接单，30分钟没接单可点击“加急匹配”（需额外5%费用）'
-    }
-  ],
-  // 服务问题（核心）
-  service: [
-    {
-      question: '护航会导致账号被封吗？',
-      answer: '不会。所有打手手动操作，无作弊工具，至今零封号记录，可放心使用'
-    },
-    {
-      question: '能指定打手吗？',
-      answer: '可以：在“打手大厅”找到目标打手→ 点击“指定预约”；或下单时备注打手昵称'
-    },
-    {
-      question: '装备代刷没刷到怎么办？',
-      answer: '全额退款，或免费继续刷到完成（需下单时明确备注要刷的装备名称）'
-    }
-  ],
-  // 账号问题（关键）
-  account: [
-    {
-      question: '给打手账号，怎么保证安全？',
-      answer: '1. 设临时密码（服务后改回）；2. 服务期间不登录；3. 结束后立即改密码+开保护'
-    },
-    {
-      question: '账号被冻结了怎么办？',
-      answer: '游戏官方冻结：走官方解冻流程；平台临时冻结：联系客服1-2小时内解'
-    },
-    {
-      question: '忘记密码怎么找？',
-      answer: '登录页点“忘记密码”→ 用绑定手机/邮箱收验证码→ 重置密码；无绑定联系客服'
-    }
-  ]
-});
+type FaqRow = { question: string; answer: string };
+
+/** 内置默认 FAQ（离线或未接入后端时的兜底） */
+function buildDefaultFaqData(): Record<'order' | 'service' | 'account', FaqRow[]> {
+  return {
+    order: [
+      { question: '怎么修改护航订单时间？', answer: '进入“我的订单”→ 找到对应订单→ 点击“修改时间”→ 选择新时间提交（已接单需先和打手确认）' },
+      { question: '订单能取消退款吗？', answer: '未接单：直接取消，全额退款（1-3天到账）；已接单未开始：扣5%手续费；已开始：按完成比例退' },
+      { question: '订单“待接单”要等多久？', answer: '通常10-30分钟内接单，30分钟没接单可点击“加急匹配”（需额外5%费用）' }
+    ],
+    service: [
+      { question: '护航会导致账号被封吗？', answer: '不会。所有打手手动操作，无作弊工具，至今零封号记录，可放心使用' },
+      { question: '能指定打手吗？', answer: '可以：在“打手大厅”找到目标打手→ 点击“指定预约”；或下单时备注打手昵称' },
+      { question: '装备代刷没刷到怎么办？', answer: '全额退款，或免费继续刷到完成（需下单时明确备注要刷的装备名称）' }
+    ],
+    account: [
+      { question: '给打手账号，怎么保证安全？', answer: '1. 设临时密码（服务后改回）；2. 服务期间不登录；3. 结束后立即改密码+开保护' },
+      { question: '账号被冻结了怎么办？', answer: '游戏官方冻结：走官方解冻流程；平台临时冻结：联系客服1-2小时内解' },
+      { question: '忘记密码怎么找？', answer: '登录页点“忘记密码”→ 用绑定手机/邮箱收验证码→ 重置密码；无绑定联系客服' }
+    ]
+  };
+}
+
+/** 将接口返回的 FAQ 列表按分类折叠为页面所需结构 */
+function groupFaqsFromApi(items: FaqItem[]): Record<'order' | 'service' | 'account', FaqRow[]> {
+  const next: Record<'order' | 'service' | 'account', FaqRow[]> = { order: [], service: [], account: [] };
+  for (const it of items) {
+    const row: FaqRow = { question: it.question, answer: it.answer };
+    if (it.category === 'order') next.order.push(row);
+    else if (it.category === 'service') next.service.push(row);
+    else if (it.category === 'account') next.account.push(row);
+  }
+  return next;
+}
+
+const faqData = ref(buildDefaultFaqData());
 
 // —— 计算属性：筛选FAQ ——
 const filteredFaqs = computed(() => {
@@ -196,12 +186,27 @@ const handleLogout = () => {
   router.push('/login');
 };
 
-// —— 初始化：简化，只加载用户信息 ——
+// —— 初始化：用户信息 + 尝试同步后端 FAQ（mock/real 均走统一 API 层） ——
 const init = () => {
   const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user');
   if (userStr) currentUser.value = JSON.parse(userStr);
 };
 init();
+
+onMounted(async () => {
+  try {
+    const items = await helpCenterApi.listFaqs();
+    if (items.length) {
+      const grouped = groupFaqsFromApi(items);
+      // 仅当某分类下有数据时才覆盖，避免半空状态
+      if (grouped.order.length || grouped.service.length || grouped.account.length) {
+        faqData.value = grouped;
+      }
+    }
+  } catch {
+    // 保留默认本地 FAQ
+  }
+});
 </script>
 
 <style scoped>

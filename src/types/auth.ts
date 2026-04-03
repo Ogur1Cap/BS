@@ -14,6 +14,8 @@ export interface AuthUser {
   avatar?: string
   email?: string
   phone?: string
+  /** 0=顾客 1=打手 */
+  userLevel?: number
 }
 
 export interface LoginResponse {

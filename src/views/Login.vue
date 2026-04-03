@@ -122,6 +122,12 @@
           </button>
         </form>
 
+        <!-- 演示账号提示（开发或 Mock 模式便于联调） -->
+        <p v-if="showDemoAccountHint" class="login-demo-hint">
+          演示账号：顾客 <strong>XiaoLiMao</strong>、打手 <strong>DaShou_YeXi</strong>（或邮箱 dashou_yexi@demo.delta）、BOSS
+          <strong>BOSS_Delta</strong>（或 boss@demo.delta），密码均为 <strong>123456</strong>
+        </p>
+
         <!-- 分隔线 -->
         <div class="divider">
           <div class="divider-line"></div>
@@ -171,6 +177,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { authApi } from '../api/authApi';
 import { setAuthToken, setAuthUser } from '../api/token';
 import { useUserStore } from '../stores/user';
+import { useNotificationStore } from '../stores/notifications';
 
 // 路由实例
 const router = useRouter();
@@ -211,6 +218,10 @@ const errors = reactive({
 const showPassword = ref(false);
 // 加载状态
 const isLoading = ref(false);
+
+// 开发或 Mock 时显示演示账号，避免「打手账号登不上」多为环境/账号名误解
+const showDemoAccountHint =
+  import.meta.env.DEV || String(import.meta.env.VITE_API_MODE || '').toLowerCase() === 'mock';
 
 // 清除单个字段错误
 const clearError = (field: 'username' | 'password') => {
@@ -292,7 +303,11 @@ const handleLogin = async () => {
     } catch {
       /* 兼容仅返回基础 user 的场景 */
     }
-    
+
+    void useNotificationStore()
+      .refreshList()
+      .catch(() => {})
+
     // 登录成功后优先回跳 redirect，未提供时进入首页
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
     router.push(redirect || '/dashboard');
@@ -830,6 +845,21 @@ const handleLogin = async () => {
 
 .weibo-button:hover i {
   color: #f87171;
+}
+
+/* 演示账号提示 */
+.login-demo-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: rgba(156, 163, 175, 0.85);
+  margin: 0.75rem 0 0;
+  padding: 0 0.5rem;
+}
+
+.login-demo-hint strong {
+  color: rgba(209, 213, 219, 0.95);
+  font-weight: 600;
 }
 
 /* 注册链接 */

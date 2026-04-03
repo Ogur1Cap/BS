@@ -1,4 +1,11 @@
-export type OrderStatus = 'pending' | 'ongoing' | 'completed' | 'cancelled'
+export type OrderStatus =
+  | 'pending'
+  | 'ongoing'
+  | 'completion_pending'
+  | 'completed'
+  | 'cancelled'
+  | 'refund_requested'
+  | 'refunded'
 
 export interface OrderPlayer {
   id: string
@@ -20,6 +27,8 @@ export interface Order {
   startTime?: string
   refundRequested?: boolean
   refundReason?: string
+  /** 打手申请完成时填写的说明（待 BOSS 审核期间） */
+  completionRequestNote?: string | null
 }
 
 export interface CreateOrderPayload {

@@ -226,6 +226,7 @@ import Header from '../layouts/Header.vue';
 import Footer from '../layouts/Footer.vue';
 // 引入打手卡片组件（下方会提供）
 import PlayerProfileCard from '@/components/Players/PlayerProfileCard.vue';
+import { playerHallApi } from '../api/playerHallApi';
 
 // 路由实例
 const router = useRouter();
@@ -266,6 +267,26 @@ const skillMap: Record<string, string> = {
   rank: '段位冲刺'
 };
 
+/** 将后端 /player-hall/players 行映射为卡片组件所需结构 */
+function mapRemoteToPlayer(raw: Record<string, unknown>): Player {
+  const rank = raw.rank as Player['rank'];
+  return {
+    id: String(raw.id),
+    name: String(raw.name ?? ''),
+    avatar: String(raw.avatar ?? ''),
+    rank: (['legend', 'master', 'diamond', 'platinum'].includes(rank) ? rank : 'platinum') as Player['rank'],
+    rankText: String(raw.rankText ?? ''),
+    rankColor: String(raw.rankColor ?? '#64748b'),
+    skills: Array.isArray(raw.skills) ? (raw.skills as string[]) : [],
+    winRate: Number(raw.winRate) || 0,
+    completedOrders: Number(raw.completedOrders) || 0,
+    rating: Number(raw.rating) || 0,
+    pricePerHour: Number(raw.pricePerHour) || 0,
+    intro: String(raw.intro ?? ''),
+    tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : []
+  };
+}
+
 // 分页状态
 const currentPage = ref(1);
 const pageSize = ref(8); // 每页显示8个打手
@@ -277,7 +298,7 @@ const showDetailModal = ref(false);
 // —— 模拟打手数据（实际项目对接API） ——
 const allPlayers = ref<Player[]>([
   {
-    id: 'p1',
+    id: '1',
     name: '三角洲-猎鹰',
     avatar: 'https://picsum.photos/id/1012/300/300',
     rank: 'legend',
@@ -292,7 +313,7 @@ const allPlayers = ref<Player[]>([
     tags: ['全程直播', '胜率保障', '段位包过']
   },
   {
-    id: 'p2',
+    id: '2',
     name: '夜袭者',
     avatar: 'https://picsum.photos/id/1025/300/300',
     rank: 'master',
@@ -307,7 +328,7 @@ const allPlayers = ref<Player[]>([
     tags: ['装备速刷', '突击专精', '高效完成']
   },
   {
-    id: 'p3',
+    id: '3',
     name: '战术大师-凯',
     avatar: 'https://picsum.photos/id/1074/300/300',
     rank: 'diamond',
@@ -322,7 +343,7 @@ const allPlayers = ref<Player[]>([
     tags: ['新手友好', '战术教学', '耐心指导']
   },
   {
-    id: 'p4',
+    id: '4',
     name: '狙神-零度',
     avatar: 'https://picsum.photos/id/1062/300/300',
     rank: 'legend',
@@ -337,7 +358,7 @@ const allPlayers = ref<Player[]>([
     tags: ['狙击专精', '高命中率', '远程压制']
   },
   {
-    id: 'p5',
+    id: '5',
     name: '突击手-狂狼',
     avatar: 'https://picsum.photos/id/1084/300/300',
     rank: 'master',
@@ -352,7 +373,7 @@ const allPlayers = ref<Player[]>([
     tags: ['近战专精', '快速清场', '1v多能力']
   },
   {
-    id: 'p6',
+    id: '6',
     name: '物资专家-小满',
     avatar: 'https://picsum.photos/id/1066/300/300',
     rank: 'diamond',
@@ -367,7 +388,7 @@ const allPlayers = ref<Player[]>([
     tags: ['物资专家', '装备规划', '资源最大化']
   },
   {
-    id: 'p7',
+    id: '7',
     name: '新手导师-老K',
     avatar: 'https://picsum.photos/id/1005/300/300',
     rank: 'platinum',
@@ -382,7 +403,7 @@ const allPlayers = ref<Player[]>([
     tags: ['新手导师', '基础教学', '耐心讲解']
   },
   {
-    id: 'p8',
+    id: '8',
     name: '任务达人-阿泽',
     avatar: 'https://picsum.photos/id/1027/300/300',
     rank: 'master',
@@ -397,7 +418,7 @@ const allPlayers = ref<Player[]>([
     tags: ['任务专精', '成就党友好', '隐藏彩蛋']
   },
   {
-    id: 'p9',
+    id: '9',
     name: '速刷王-闪电',
     avatar: 'https://picsum.photos/id/1059/300/300',
     rank: 'diamond',
@@ -412,7 +433,7 @@ const allPlayers = ref<Player[]>([
     tags: ['极速刷取', '效率优先', '等级提升']
   },
   {
-    id: 'p10',
+    id: '10',
     name: '团队指挥-老周',
     avatar: 'https://picsum.photos/id/1079/300/300',
     rank: 'legend',
@@ -497,11 +518,19 @@ const resetFilters = () => {
   currentPage.value = 1;
 };
 
-// 预约打手（跳转至下单页，携带打手ID）
+// 预约打手（跳转至下单页，携带打手 ID + 昵称，便于订单与通知展示）
 const handleBookPlayer = (playerId: string) => {
+  const p = allPlayers.value.find((x) => x.id === playerId);
   router.push({
     path: '/orders',
-    query: { create: '1', gameKey: 'delta', serviceKey: 'fullEscort', playerId, source: 'play-hall' }
+    query: {
+      create: '1',
+      gameKey: 'delta',
+      serviceKey: 'fullEscort',
+      playerId,
+      playerName: p?.name ?? '',
+      source: 'play-hall'
+    }
   });
 };
 
@@ -534,15 +563,25 @@ const handleLogout = () => {
   router.push('/login');
 };
 
-// 页面加载时获取用户信息
-onMounted(() => {
+// 页面加载时获取用户信息，并在真实后端模式下同步打手列表
+onMounted(async () => {
   const userStr = localStorage.getItem('delta_user') || sessionStorage.getItem('delta_user');
   if (userStr) {
     currentUser.value = JSON.parse(userStr);
     userAvatar.value = currentUser.value.avatar || userAvatar.value;
   } else {
-    // 未登录跳转至登录页
     router.push('/login');
+    return;
+  }
+
+  // Mock 与真实模式均拉取列表，保证 ID 与后端/工作台一致；失败时保留上方静态兜底数据
+  try {
+    const rows = await playerHallApi.listPlayers();
+    if (rows.length) {
+      allPlayers.value = rows.map((r) => mapRemoteToPlayer(r));
+    }
+  } catch {
+    /* 网络或接口异常：使用本地演示数据 */
   }
 });
 </script>

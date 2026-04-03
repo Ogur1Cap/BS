@@ -19,6 +19,9 @@
           <div class="row"><span>创建时间</span><b>{{ formatDate(order.createdAt) }}</b></div>
           <div class="row"><span>开始时间</span><b>{{ order.startTime ? formatDate(order.startTime) : '未安排' }}</b></div>
           <div class="row"><span>打手</span><b>{{ order.player?.name || '未分配' }}</b></div>
+          <div class="row" v-if="order.completionRequestNote">
+            <span>完成申请说明</span><b>{{ order.completionRequestNote }}</b>
+          </div>
           <div class="row" v-if="order.refundRequested"><span>退款原因</span><b>{{ order.refundReason || '未填写' }}</b></div>
 
           <div class="actions">
@@ -51,7 +54,7 @@ const nextStartTime = ref('')
 
 const canOperate = computed(() => {
   if (!order.value) return false
-  return ['pending', 'ongoing'].includes(order.value.status)
+  return ['pending', 'ongoing', 'completion_pending'].includes(order.value.status)
 })
 
 const formatDate = (value: string) => new Date(value).toLocaleString('zh-CN')

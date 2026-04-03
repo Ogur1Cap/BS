@@ -64,7 +64,8 @@ export const useUserStore = defineStore('user', {
           email: this.profile.email,
           phone: this.profile.phone,
           nickname: this.settings?.nickname?.trim() || undefined,
-          avatar: this.resolvedAvatarUrl
+          avatar: this.resolvedAvatarUrl,
+          userLevel: typeof this.profile.userLevel === 'number' ? this.profile.userLevel : 0
         },
         this.rememberFlag()
       )
@@ -73,7 +74,15 @@ export const useUserStore = defineStore('user', {
     /** 登录后或 App 启动时拉取服务端资料与账户设置 */
     async loadUserFromServer() {
       const prof = await profileApi.getProfile()
-      this.profile = prof
+      const raw = prof as Profile & { userLevel?: unknown; playerProfileId?: unknown }
+      this.profile = {
+        ...prof,
+        userLevel: typeof raw.userLevel === 'number' ? raw.userLevel : 0,
+        playerProfileId:
+          raw.playerProfileId === null || raw.playerProfileId === undefined
+            ? null
+            : String(raw.playerProfileId)
+      }
       try {
         const raw = await accountSettingsApi.get()
         this.settings = normalizeSettings(raw as AccountSettings)

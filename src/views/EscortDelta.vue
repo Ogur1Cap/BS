@@ -16,11 +16,14 @@
           <h1>专业护航服务</h1>
           <p>由精英战术小队提供支援，突破防线，攻克难关，提升段位</p>
           <div class="cta-buttons">
-            <button class="btn primary" @click="scrollToServices">
+            <button type="button" class="btn primary" @click="scrollToServices">
               查看服务 <i class="fa fa-arrow-right ml-2"></i>
             </button>
-            <button class="btn secondary" @click="scrollToPlayers">
+            <button type="button" class="btn secondary" @click="scrollToPlayers">
               选择打手
+            </button>
+            <button type="button" class="btn outline" @click="scrollToOrder">
+              立即预约
             </button>
           </div>
         </div>
@@ -169,14 +172,25 @@
           <h2>精英护航打手</h2>
           <p>通过严格筛选的专业玩家，为您提供顶级护航服务</p>
         </div>
+
+        <p class="players-book-hint">
+          <i class="fa fa-info-circle" aria-hidden="true"></i>
+          点击「立即预约」将为您打开订单创建流程；若尚未选择套餐，可先选定服务类型再跳转，或在本页底部表单继续填写。
+        </p>
         
         <div class="players-grid">
-          <PlayerProfileCard 
-            v-for="player in topPlayers" 
+          <div
+            v-for="player in topPlayers"
             :key="player.id"
-            :player="player"
-            @book="bookPlayer(player.id)"
-          />
+            class="player-card-shell"
+            :class="{ 'player-card-shell--active': bookModalPlayerId === player.id }"
+          >
+            <PlayerProfileCard 
+              :player="player"
+              :book-loading="bookingTargetId === player.id"
+              @book-now="bookPlayer(player.id)"
+            />
+          </div>
         </div>
         
         <div class="view-all-players">
@@ -204,7 +218,7 @@
     </section>
 
     <!-- 立即下单 -->
-    <section class="order-section">
+    <section class="order-section" ref="orderSectionRef" :class="{ 'order-section-pulse': orderSectionHighlight }">
       <div class="container">
         <div class="order-card">
           <div class="order-header">
@@ -330,12 +344,62 @@
 
     <!-- 页脚 -->
     <Footer />
+
+    <!-- 未选服务时：预约打手前选择护航类型 -->
+    <Teleport to="body">
+      <div
+        v-if="bookModalOpen"
+        class="escort-book-backdrop"
+        role="presentation"
+        @click.self="closeBookModal"
+      >
+        <div
+          class="escort-book-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="escort-book-title"
+          tabindex="-1"
+          ref="bookModalRef"
+          @keydown.escape.prevent="closeBookModal"
+        >
+          <button type="button" class="escort-book-close" aria-label="关闭" @click="closeBookModal">
+            <i class="fa fa-times"></i>
+          </button>
+          <h3 id="escort-book-title" class="escort-book-title">
+            预约打手 · {{ bookModalPlayer?.name ?? '' }}
+          </h3>
+          <p class="escort-book-desc">请选择护航服务类型后继续：</p>
+          <div class="escort-book-services" role="radiogroup" aria-label="护航服务类型">
+            <button
+              v-for="opt in escortBookServiceOptions"
+              :key="opt.key"
+              type="button"
+              class="escort-book-chip"
+              :class="{ 'is-selected': bookModalServiceKey === opt.key }"
+              :aria-pressed="bookModalServiceKey === opt.key"
+              @click="bookModalServiceKey = opt.key"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+          <div class="escort-book-actions">
+            <button type="button" class="btn escort-book-primary" @click="modalConfirmGoOrders">
+              前往「我的订单」创建
+            </button>
+            <button type="button" class="btn escort-book-secondary" @click="modalConfirmStayOnPage">
+              在本页表单填写
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
+import { normalizePlayerProfileId } from '../utils/playerProfileId';
 import Header from '../layouts/Header.vue';
 import Footer from '../layouts/Footer.vue';
 import ServicePackageCard from '@/components/Escort/ServicePackageCard.vue';
@@ -349,6 +413,25 @@ const router = useRouter();
 // DOM引用
 const servicesSection = ref<HTMLElement | null>(null);
 const playersSection = ref<HTMLElement | null>(null);
+const orderSectionRef = ref<HTMLElement | null>(null);
+/** 从打手卡片或锚点滚入预约区时短暂高亮，提示用户填写表单 */
+const orderSectionHighlight = ref(false);
+
+/** 精英打手「立即预约」：跳转订单页时的加载态（对应卡片按钮） */
+const bookingTargetId = ref<string | null>(null);
+/** 未预先选套餐时，先弹层选择服务类型 */
+const bookModalOpen = ref(false);
+const bookModalPlayerId = ref<string | null>(null);
+const bookModalServiceKey = ref<string>('fullEscort');
+const bookModalRef = ref<HTMLElement | null>(null);
+
+/** 与底部表单选项一致，供弹层与订单 query 使用 */
+const escortBookServiceOptions = [
+  { key: 'fullEscort', label: '全程战术护航' },
+  { key: 'rankBoost', label: '段位冲刺' },
+  { key: 'equipment', label: '装备物资获取' },
+  { key: 'specialMission', label: '特殊任务攻坚' }
+] as const;
 
 // 用户信息
 const currentUser = ref<{ username: string } | undefined>(undefined);
@@ -377,7 +460,7 @@ const stats = ref({
 // 顶级打手数据
 const topPlayers = ref([
   {
-    id: 'p1',
+    id: '1',
     name: '三角洲-猎鹰',
     avatar: 'https://picsum.photos/id/1012/300/300',
     level: 99,
@@ -395,7 +478,7 @@ const topPlayers = ref([
     tags: ['全程直播', '胜率保障', '段位包过']
   },
   {
-    id: 'p2',
+    id: '2',
     name: '夜袭者',
     avatar: 'https://picsum.photos/id/1025/300/300',
     level: 97,
@@ -413,7 +496,7 @@ const topPlayers = ref([
     tags: ['装备速刷', '突击专精', '高效完成']
   },
   {
-    id: 'p3',
+    id: '3',
     name: '战术大师-凯',
     avatar: 'https://picsum.photos/id/1074/300/300',
     level: 95,
@@ -431,6 +514,10 @@ const topPlayers = ref([
     tags: ['新手友好', '战术教学', '耐心指导']
   }
 ]);
+
+const bookModalPlayer = computed(() =>
+  bookModalPlayerId.value ? topPlayers.value.find((p) => p.id === bookModalPlayerId.value) : undefined
+);
 
 // 用户评价数据
 const testimonials = ref([
@@ -475,19 +562,95 @@ const getServiceName = (serviceKey: string) => {
 const selectService = (serviceType: string) => {
   selectedService.value = serviceType;
   formData.value.serviceType = serviceType;
-  
-  // 滚动到下单区域
-  const orderSection = document.querySelector('.order-section');
-  orderSection?.scrollIntoView({ behavior: 'smooth' });
+
+  orderSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  orderSectionHighlight.value = true;
+  window.setTimeout(() => {
+    orderSectionHighlight.value = false;
+  }, 2000);
 };
 
-// 预约打手
+function openBookModal(playerId: string) {
+  bookModalPlayerId.value = playerId;
+  const preset = selectedService.value || formData.value.serviceType?.trim();
+  bookModalServiceKey.value =
+    preset && escortBookServiceOptions.some((o) => o.key === preset) ? preset : 'fullEscort';
+  bookModalOpen.value = true;
+}
+
+function closeBookModal() {
+  bookModalOpen.value = false;
+  bookModalPlayerId.value = null;
+}
+
+watch(bookModalOpen, async (open) => {
+  document.body.style.overflow = open ? 'hidden' : '';
+  if (open) {
+    await nextTick();
+    bookModalRef.value?.focus();
+  }
+});
+
+/** 带加载态跳转订单创建页（与打手大厅 query 约定一致） */
+async function goOrdersWithPlayer(playerId: string, serviceKey: string) {
+  const p = topPlayers.value.find((x) => x.id === playerId);
+  const nid = normalizePlayerProfileId(playerId) || playerId;
+  bookingTargetId.value = playerId;
+  try {
+    await router.push({
+      path: '/orders',
+      query: {
+        create: '1',
+        gameKey: 'delta',
+        serviceKey,
+        playerId: nid,
+        playerName: p?.name ?? '',
+        source: 'escort'
+      }
+    });
+  } finally {
+    bookingTargetId.value = null;
+  }
+}
+
+/**
+ * 已选套餐/表单服务：直接跳转；否则弹层选类型，可选「去订单页」或「本页表单」。
+ */
 const bookPlayer = (playerId: string) => {
-  formData.value.playerId = playerId;
-  
-  // 滚动到下单区域
-  const orderSection = document.querySelector('.order-section');
-  orderSection?.scrollIntoView({ behavior: 'smooth' });
+  const preset = selectedService.value || formData.value.serviceType?.trim();
+  if (preset && escortBookServiceOptions.some((o) => o.key === preset)) {
+    void goOrdersWithPlayer(playerId, preset);
+  } else {
+    openBookModal(playerId);
+  }
+};
+
+function modalConfirmGoOrders() {
+  const pid = bookModalPlayerId.value;
+  const sk = bookModalServiceKey.value;
+  if (!pid) return;
+  closeBookModal();
+  void goOrdersWithPlayer(pid, sk);
+}
+
+function modalConfirmStayOnPage() {
+  const pid = bookModalPlayerId.value;
+  const sk = bookModalServiceKey.value;
+  if (!pid) return;
+  formData.value.playerId = pid;
+  selectedService.value = sk;
+  formData.value.serviceType = sk;
+  closeBookModal();
+  scrollToOrder();
+}
+
+/** 锚定到本页底部预约表单，并短暂高亮区块 */
+const scrollToOrder = () => {
+  orderSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  orderSectionHighlight.value = true;
+  window.setTimeout(() => {
+    orderSectionHighlight.value = false;
+  }, 2000);
 };
 
 // 滚动到服务区域
@@ -502,6 +665,9 @@ const scrollToPlayers = () => {
 
 // 提交订单
 const submitOrder = () => {
+  const rawPid = formData.value.playerId?.trim() || '';
+  const nid = rawPid ? normalizePlayerProfileId(rawPid) || rawPid : '';
+  const picked = nid ? topPlayers.value.find((x) => x.id === rawPid || x.id === nid) : undefined;
   // 护航页作为服务介绍入口，统一跳转到订单页完成创建，避免多入口逻辑分裂
   router.push({
     path: '/orders',
@@ -509,7 +675,7 @@ const submitOrder = () => {
       create: '1',
       gameKey: 'delta',
       serviceKey: formData.value.serviceType || selectedService.value || 'fullEscort',
-      playerId: formData.value.playerId || undefined,
+      ...(nid ? { playerId: nid, playerName: picked?.name ?? '' } : {}),
       source: 'escort'
     }
   });
@@ -538,6 +704,10 @@ onMounted(() => {
   const defaultTime = new Date();
   defaultTime.setHours(defaultTime.getHours() + 1);
   formData.value.startTime = defaultTime.toISOString().slice(0, 16);
+});
+
+onUnmounted(() => {
+  document.body.style.overflow = '';
 });
 </script>
 
@@ -610,6 +780,18 @@ onMounted(() => {
 
 .btn.secondary:hover {
   background-color: rgba(59, 130, 246, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn.outline {
+  background: transparent;
+  color: #e2e8f0;
+  border: 1px solid rgba(226, 232, 240, 0.35);
+}
+
+.btn.outline:hover {
+  border-color: #60a5fa;
+  color: #93c5fd;
   transform: translateY(-2px);
 }
 
@@ -847,11 +1029,41 @@ onMounted(() => {
   padding: 6rem 0;
 }
 
+.players-book-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-width: 720px;
+  margin: 0 auto 1.75rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #94a3b8;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.5rem;
+}
+
+.players-book-hint .fa {
+  margin-top: 0.15rem;
+  color: #60a5fa;
+  flex-shrink: 0;
+}
+
 .players-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 2rem;
   margin-bottom: 2rem;
+}
+
+.player-card-shell {
+  border-radius: 1rem;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.player-card-shell--active {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.7), 0 12px 40px rgba(59, 130, 246, 0.12);
 }
 
 .view-all-players {
@@ -872,6 +1084,137 @@ onMounted(() => {
   color: #60a5fa;
 }
 
+/* 精英打手预约弹层（Teleport 至 body，仍受 scoped 作用域约束） */
+.escort-book-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.escort-book-modal {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 1.75rem 1.5rem 1.5rem;
+  background: #1e293b;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  outline: none;
+}
+
+.escort-book-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+
+.escort-book-close:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.escort-book-title {
+  margin: 0 2rem 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.escort-book-desc {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.escort-book-services {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.escort-book-chip {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(71, 85, 105, 0.6);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.escort-book-chip:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #e2e8f0;
+}
+
+.escort-book-chip.is-selected {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+.escort-book-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.escort-book-primary {
+  width: 100%;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  background: #3b82f6 !important;
+  color: #fff !important;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.escort-book-primary:hover {
+  background: #2563eb !important;
+}
+
+.escort-book-secondary {
+  width: 100%;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+  background: transparent !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.escort-book-secondary:hover {
+  border-color: rgba(59, 130, 246, 0.45) !important;
+  color: #cbd5e1 !important;
+}
+
 /* 用户评价区域 */
 .testimonials {
   padding: 6rem 0;
@@ -887,6 +1230,12 @@ onMounted(() => {
 /* 下单区域 */
 .order-section {
   padding: 6rem 0;
+  border-radius: 1rem;
+  transition: box-shadow 0.35s ease;
+}
+
+.order-section-pulse {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.45), 0 0 40px rgba(59, 130, 246, 0.15);
 }
 
 .order-card {

@@ -9,10 +9,9 @@ export const notificationService = {
     return notificationsApi.getNotifications();
   },
   
-  // 获取未读通知数量
+  // 获取未读通知数量（优先走轻量接口）
   async getUnreadCount(): Promise<number> {
-    const notifications = await this.getNotifications();
-    return notifications.filter(notification => !notification.isRead).length;
+    return notificationsApi.getUnreadCount();
   },
   
   // 标记通知为已读

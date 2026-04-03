@@ -13,7 +13,7 @@
         <!-- 页面标题 -->
         <div class="page-header">
           <h1 class="page-title">我的订单</h1>
-          <button class="create-order-btn" @click="navigateToCreateOrder">
+          <button v-if="isCustomerAccount()" class="create-order-btn" @click="navigateToCreateOrder">
             <i class="fa fa-plus"></i>
             <span>创建新订单</span>
           </button>
@@ -31,6 +31,7 @@
               <option value="all">全部状态</option>
               <option value="pending">待接单</option>
               <option value="ongoing">进行中</option>
+              <option value="completion_pending">待审核完成</option>
               <option value="completed">已完成</option>
               <option value="cancelled">已取消</option>
             </select>
@@ -161,7 +162,7 @@
                       class="cancel-btn"
                       @click="handleCancelOrder(order.id)"
                       title="取消订单"
-                      v-if="['pending', 'ongoing'].includes(order.status)"
+                      v-if="['pending', 'ongoing', 'completion_pending'].includes(order.status)"
                     >
                       <i class="fa fa-times"></i>
                     </button>
@@ -246,46 +247,91 @@
       <span>{{ toastMessage }}</span>
     </div>
 
-    <!-- 创建订单弹窗 -->
-    <div class="modal-backdrop" v-if="showCreateModal">
-      <div class="modal">
+    <!-- 创建订单弹窗（优化布局：游戏预览 + 服务快捷选择 + 金额预设） -->
+    <div class="modal-backdrop co-backdrop" v-if="showCreateModal" @click.self="closeCreateModal">
+      <div class="modal co-modal">
         <div class="modal-header">
-          <h3 class="modal-title">创建新订单</h3>
-          <button class="close-modal" @click="showCreateModal = false">
+          <h3 id="co-title" class="modal-title">创建订单</h3>
+          <button type="button" class="close-modal" aria-label="关闭" @click="closeCreateModal">
             <i class="fa fa-times"></i>
           </button>
         </div>
-        <div class="modal-body">
-          <div class="form-grid-create">
-            <div class="filter-group-col">
-              <label class="filter-label">游戏服务</label>
-              <select v-model="createForm.gameKey" class="filter-select">
-                <option v-for="game in gameOptions" :key="game.key" :value="game.key">{{ game.name }}</option>
-              </select>
-            </div>
-            <div class="filter-group-col">
-              <label class="filter-label">服务类型</label>
-              <select v-model="createForm.serviceType" class="filter-select" @change="handleCreateServiceTypeChange">
-                <option v-for="service in serviceOptions" :key="service" :value="service">{{ service }}</option>
-              </select>
-            </div>
-            <div class="filter-group-col">
-              <label class="filter-label">订单金额</label>
-              <input v-model.number="createForm.amount" class="search-input" type="number" min="1" placeholder="请输入金额" />
-            </div>
-            <div class="filter-group-col">
-              <label class="filter-label">指定打手ID（可选）</label>
-              <input v-model.trim="createForm.playerId" class="search-input" type="text" placeholder="例如 p1" />
-            </div>
-            <div class="filter-group-col">
-              <label class="filter-label">打手昵称（可选）</label>
-              <input v-model.trim="createForm.playerName" class="search-input" type="text" placeholder="例如 三角洲-猎鹰" />
+        <div class="modal-body co-body">
+          <div class="co-layout">
+            <aside class="co-aside">
+              <div class="co-game-card">
+                <img :src="selectedCreateGame.image" alt="" class="co-game-img" />
+                <p class="co-game-name">{{ selectedCreateGame.name }}</p>
+                <label class="co-mini-label">切换游戏</label>
+                <select v-model="createForm.gameKey" class="filter-select co-game-select">
+                  <option v-for="game in gameOptions" :key="game.key" :value="game.key">{{ game.name }}</option>
+                </select>
+              </div>
+              <router-link to="/play-hall" class="co-hall-link" @click="closeCreateModal">
+                <i class="fa fa-users"></i> 去打手大厅选择打手
+              </router-link>
+            </aside>
+            <div class="co-main-fields">
+              <p class="co-hint">请选择服务类型；金额可点快捷金额或自定义。</p>
+              <label class="co-field-label">服务类型</label>
+              <div class="co-chips">
+                <button
+                  v-for="s in SERVICE_LIST"
+                  :key="s.key"
+                  type="button"
+                  class="co-chip"
+                  :class="{ active: createForm.serviceType === s.name }"
+                  @click="pickCreateService(s)"
+                >
+                  {{ s.name }}
+                  <span class="co-chip-sub">¥{{ s.defaultAmount }}起</span>
+                </button>
+              </div>
+              <label class="co-field-label">订单金额（元）</label>
+              <div class="co-amount-row">
+                <button
+                  v-for="amt in createAmountPresets"
+                  :key="amt"
+                  type="button"
+                  class="co-amt-pill"
+                  :class="{ active: createForm.amount === amt }"
+                  @click="createForm.amount = amt"
+                >
+                  ¥{{ amt }}
+                </button>
+                <input
+                  v-model.number="createForm.amount"
+                  class="search-input co-amount-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="自定义"
+                />
+              </div>
+              <label class="co-field-label">指定打手（可选）</label>
+              <div class="co-player-row">
+                <input
+                  v-model.trim="createForm.playerId"
+                  class="search-input"
+                  type="text"
+                  placeholder="打手档案 ID（大厅卡片上可见）"
+                />
+                <input
+                  v-model.trim="createForm.playerName"
+                  class="search-input"
+                  type="text"
+                  placeholder="打手昵称"
+                />
+              </div>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="modal-btn cancel" @click="showCreateModal = false">取消</button>
-          <button class="modal-btn confirm" @click="submitCreateOrder">确认创建</button>
+          <button type="button" class="modal-btn cancel" :disabled="createSubmitting" @click="closeCreateModal">取消</button>
+          <button type="button" class="modal-btn confirm" :disabled="createSubmitting" @click="submitCreateOrder">
+            <span v-if="createSubmitting"><i class="fa fa-spinner fa-spin"></i> 提交中…</span>
+            <span v-else>确认创建</span>
+          </button>
         </div>
       </div>
     </div>
@@ -331,6 +377,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { ordersApi } from '../api/ordersApi';
 import { GAME_LIST, getGameByKey } from '../constants/games';
 import { SERVICE_LIST, getServiceByKey } from '../constants/services';
+import type { ServiceMeta } from '../constants/services';
+import { isCustomerAccount } from '../utils/authLevel';
+import { normalizePlayerProfileId } from '../utils/playerProfileId';
 
 // 导入组件
 import Header from '../layouts/Header.vue';
@@ -361,6 +410,9 @@ const showCancelModal = ref(false);
 const cancelOrderId = ref('');
 const cancelReason = ref('');
 const showCreateModal = ref(false);
+const createSubmitting = ref(false);
+/** 创建订单金额快捷按钮 */
+const createAmountPresets = [128, 158, 198, 248, 298];
 
 // 创建订单表单
 const gameOptions = GAME_LIST.map((game) => ({
@@ -566,6 +618,8 @@ const getOrderStatusClass = (status: string) => {
       return 'status-pending';
     case 'ongoing':
       return 'status-ongoing';
+    case 'completion_pending':
+      return 'status-completion-pending';
     case 'completed':
       return 'status-completed';
     case 'cancelled':
@@ -633,11 +687,15 @@ const navigateToCreateOrder = () => {
   showCreateModal.value = true;
 };
 
-const handleCreateServiceTypeChange = () => {
-  const serviceMeta = getServiceByNameSafe(createForm.serviceType);
-  if (!serviceMeta) return;
-  createForm.amount = serviceMeta.defaultAmount;
-};
+function closeCreateModal() {
+  showCreateModal.value = false;
+}
+
+/** 点击服务类型 chip：同步推荐金额 */
+function pickCreateService(s: ServiceMeta) {
+  createForm.serviceType = s.name;
+  createForm.amount = s.defaultAmount;
+}
 
 const submitCreateOrder = async () => {
   if (!createForm.serviceType || createForm.amount <= 0) {
@@ -646,6 +704,7 @@ const submitCreateOrder = async () => {
   }
 
   try {
+    createSubmitting.value = true;
     isLoading.value = true;
     const selectedService = getServiceByNameSafe(createForm.serviceType);
     const payload = {
@@ -654,17 +713,21 @@ const submitCreateOrder = async () => {
       gameImage: selectedCreateGame.value.image,
       serviceType: createForm.serviceType,
       amount: Number(createForm.amount) || selectedService?.defaultAmount || 198,
-      playerId: createForm.playerId.trim() || undefined,
+      playerId: (() => {
+        const n = normalizePlayerProfileId(createForm.playerId);
+        return n || undefined;
+      })(),
       playerName: createForm.playerName.trim() || undefined
     };
     orders.value = await ordersApi.createOrder(payload);
-    showCreateModal.value = false;
+    closeCreateModal();
     showToastMessage('订单创建成功，已加入待接单列表', 'success');
     currentPage.value = 1;
   } catch (error) {
     console.error('创建订单失败:', error);
     showToastMessage('创建订单失败，请稍后重试', 'error');
   } finally {
+    createSubmitting.value = false;
     isLoading.value = false;
   }
 };
@@ -675,6 +738,7 @@ const applyCreateQuery = () => {
   const gameKey = String(route.query.gameKey || '').trim();
   const serviceKey = String(route.query.serviceKey || '').trim();
   const playerId = String(route.query.playerId || '').trim();
+  const playerName = String(route.query.playerName || '').trim();
   const validGame = !!getGameByKey(gameKey);
   const serviceMeta = getServiceByKey(serviceKey);
   if (validGame) createForm.gameKey = gameKey;
@@ -684,7 +748,7 @@ const applyCreateQuery = () => {
   }
   if (playerId) {
     createForm.playerId = playerId;
-    createForm.playerName = `打手-${playerId}`;
+    createForm.playerName = playerName || `打手-${playerId}`;
   }
   showCreateModal.value = true;
   router.replace({ path: '/orders' });
@@ -1070,6 +1134,11 @@ onMounted(() => {
   color: #3b82f6;
 }
 
+.status-completion-pending {
+  background-color: rgba(168, 85, 247, 0.12);
+  color: #c084fc;
+}
+
 .status-completed {
   background-color: rgba(16, 185, 129, 0.1);
   color: #10b981;
@@ -1368,6 +1437,151 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+}
+
+/* 创建订单弹窗优化 */
+.co-backdrop {
+  padding: 1rem;
+}
+.co-modal {
+  max-width: 720px;
+}
+.co-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 700px) {
+  .co-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.co-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.co-game-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(55, 65, 81, 0.5);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  text-align: center;
+}
+.co-game-img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+}
+.co-game-name {
+  margin: 0.5rem 0 0.25rem;
+  font-weight: 600;
+  color: #f3f4f6;
+  font-size: 0.9rem;
+}
+.co-mini-label {
+  display: block;
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin: 0.5rem 0 0.25rem;
+  text-align: left;
+}
+.co-game-select {
+  width: 100%;
+}
+.co-hall-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #60a5fa;
+  text-decoration: none;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px dashed rgba(96, 165, 250, 0.35);
+}
+.co-hall-link:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+.co-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: #9ca3af;
+  line-height: 1.45;
+}
+.co-field-label {
+  display: block;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin: 0.65rem 0 0.35rem;
+}
+.co-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.co-chip {
+  border: 1px solid rgba(71, 85, 105, 0.7);
+  background: rgba(30, 41, 59, 0.5);
+  color: #e5e7eb;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.co-chip:hover {
+  border-color: rgba(96, 165, 250, 0.5);
+}
+.co-chip.active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+}
+.co-chip-sub {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  margin-top: 0.15rem;
+}
+.co-amount-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+.co-amt-pill {
+  border: 1px solid rgba(71, 85, 105, 0.7);
+  background: #111827;
+  color: #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.co-amt-pill.active {
+  border-color: #10b981;
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.12);
+}
+.co-amount-input {
+  width: 7rem;
+  min-width: 0;
+}
+.co-player-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+@media (max-width: 500px) {
+  .co-player-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .cancel-warning {

@@ -11,8 +11,25 @@
           :username="userStore.displayName"
           :completed-orders="completedOrders"
           :ongoing-orders="ongoingOrders"
-          :user-level="userLevel"
+          :user-level="dashboardMemberLabel"
         />
+
+        <!-- 今日行动简报：后端 /delta/mission-briefing，失败则整块隐藏 -->
+        <section v-if="missionBrief" class="briefing-section" aria-label="今日行动简报">
+          <div class="briefing-card">
+            <span class="briefing-tag">{{ missionBrief.tag }}</span>
+            <h3 class="briefing-title">{{ missionBrief.title }} · {{ missionBrief.mapName }}</h3>
+            <p class="briefing-tip">{{ missionBrief.tip }}</p>
+            <span class="briefing-date">{{ missionBrief.date }}</span>
+          </div>
+        </section>
+
+        <section v-if="notifStore.unreadCount > 0" class="unread-strip" aria-label="未读通知">
+          <router-link to="/notifications" class="unread-strip-link">
+            <i class="fa fa-bell" aria-hidden="true"></i>
+            您有 {{ notifStore.unreadCount }} 条未读通知，点击查看
+          </router-link>
+        </section>
         
         <!-- 快捷服务 -->
         <section class="services-section">
@@ -22,6 +39,7 @@
           <div class="services-grid">
             <!-- 服务卡片 -->
             <ServiceCard 
+              v-if="isCustomerAccount()"
               title="护航服务"
               description="专业玩家为您护航，轻松通关"
               icon="fa fa-shield"
@@ -34,10 +52,32 @@
               link="/orders"
             />
             <ServiceCard 
+              v-if="isCustomerAccount()"
               title="选择打手"
               description="浏览精英玩家列表"
               icon="fa fa-users"
               link="/play-hall"
+            />
+            <ServiceCard 
+              v-if="isCustomerAccount()"
+              title="加入我们"
+              description="提交资料申请成为认证打手"
+              icon="fa fa-user-plus"
+              link="/join-us"
+            />
+            <ServiceCard 
+              v-if="isPlayerAccount()"
+              title="打手工作台"
+              description="处理顾客指定您的订单，接单或拒单"
+              icon="fa fa-briefcase"
+              link="/player-desk"
+            />
+            <ServiceCard 
+              v-if="isBossAccount()"
+              title="BOSS 控制台"
+              description="审核完成申请、转派订单并通知顾客"
+              icon="fa fa-shield"
+              link="/boss-desk"
             />
             <ServiceCard 
               title="客服中心"
@@ -49,7 +89,7 @@
         </section>
         
         <!-- 热门游戏 -->
-        <section class="games-section">
+        <section v-if="isCustomerAccount()" class="games-section">
           <div class="section-header">
             <h2 class="section-title">
               <i class="fa fa-gamepad"></i> 热门游戏
@@ -86,8 +126,12 @@ import { computed, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Order } from '../components/Dashboard/OrderTable.vue';
 import { ordersApi } from '../api/ordersApi';
+import { missionBriefingApi } from '../api/missionBriefingApi';
 import { GAME_LIST } from '../constants/games';
 import { useUserStore } from '../stores/user';
+import { useNotificationStore } from '../stores/notifications';
+import type { MissionBriefing } from '../types/missionBriefing';
+import { isBossAccount, isCustomerAccount, isPlayerAccount } from '../utils/authLevel';
 
 // 导入组件
 import Header from '../layouts/Header.vue';
@@ -101,10 +145,19 @@ import OrderTable from '../components/Dashboard/OrderTable.vue';
 // 路由实例
 const router = useRouter();
 const userStore = useUserStore();
+const notifStore = useNotificationStore();
 
 const userLevel = ref('白银会员');
+/** 欢迎区第三项：打手显示身份标签 */
+const dashboardMemberLabel = computed(() => {
+  if (isBossAccount()) return '平台 BOSS'
+  if (isPlayerAccount()) return '认证打手'
+  return userLevel.value
+});
 const completedOrders = computed(() => recentOrders.value.filter((order) => order.status === 'completed').length);
-const ongoingOrders = computed(() => recentOrders.value.filter((order) => order.status === 'ongoing').length);
+const ongoingOrders = computed(() =>
+  recentOrders.value.filter((order) => order.status === 'ongoing' || order.status === 'completion_pending').length
+);
 
 // 热门游戏数据
 const popularGames = ref(
@@ -119,6 +172,7 @@ const popularGames = ref(
 
 // 明确指定recentOrders的类型为Order[]
 const recentOrders = ref<Order[]>([]);
+const missionBrief = ref<MissionBriefing | null>(null);
 
 // 页面加载
 onMounted(() => {
@@ -139,6 +193,17 @@ onMounted(() => {
     .catch(() => {
       recentOrders.value = [];
     });
+
+  missionBriefingApi
+    .getToday()
+    .then((b) => {
+      missionBrief.value = b;
+    })
+    .catch(() => {
+      missionBrief.value = null;
+    });
+
+  void notifStore.refreshUnreadCount().catch(() => {});
 });
 </script>
 
@@ -162,6 +227,68 @@ onMounted(() => {
 /* 主内容区域 */
 .main-content {
   padding: 2rem 0 4rem;
+}
+
+/* 行动简报卡片 */
+.briefing-section {
+  margin-bottom: 2rem;
+}
+.briefing-card {
+  position: relative;
+  padding: 1.25rem 1.5rem;
+  border-radius: 14px;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.85));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.briefing-tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.15);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+.briefing-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-bottom: 0.5rem;
+}
+.briefing-tip {
+  color: #cbd5e1;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+.briefing-date {
+  display: block;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.unread-strip {
+  margin-bottom: 1.5rem;
+}
+.unread-strip-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.unread-strip-link:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fff;
 }
 
 /* 服务区域 */

@@ -13,7 +13,11 @@ import PlayHall from '../views/PlayHall.vue';
 import SupportCenter from '../views/SupportCenter.vue';
 import HelpCenter from '../views/HelpCenter.vue';
 import GameMap from '../views/GameMap.vue';
+import PlayerDesk from '../views/PlayerDesk.vue';
+import BossDesk from '../views/BossDesk.vue';
+import JoinUs from '../views/JoinUs.vue';
 import { getAuthToken } from '../api/token';
+import { getEffectiveUserLevel } from '../utils/authLevel';
 // 路由规则
 const routes = [
     {
@@ -53,7 +57,8 @@ const routes = [
         component: EscortDelta,
         meta: {
             title: ' escort delta - 三角洲行动俱乐部',
-            requiresAuth: true // 需要登录才能访问
+            requiresAuth: true,
+            customerOnly: true
         }
     },
     {
@@ -62,7 +67,38 @@ const routes = [
         component: PlayHall,
         meta: {
             title: '打手大厅 - 三角洲行动俱乐部',
-            requiresAuth: true // 需要登录才能访问
+            requiresAuth: true,
+            customerOnly: true
+        }
+    },
+    {
+        path: '/join-us',
+        name: 'JoinUs',
+        component: JoinUs,
+        meta: {
+            title: '加入我们 - 三角洲行动俱乐部',
+            requiresAuth: true,
+            customerOnly: true
+        }
+    },
+    {
+        path: '/player-desk',
+        name: 'PlayerDesk',
+        component: PlayerDesk,
+        meta: {
+            title: '打手工作台 - 三角洲行动俱乐部',
+            requiresAuth: true,
+            playerOnly: true
+        }
+    },
+    {
+        path: '/boss-desk',
+        name: 'BossDesk',
+        component: BossDesk,
+        meta: {
+            title: 'BOSS 控制台 - 三角洲行动俱乐部',
+            requiresAuth: true,
+            minUserLevel: 2
         }
     },
     {
@@ -170,13 +206,29 @@ router.beforeEach((to, from, next) => {
             }
         });
     }
+    else if (requiresAuth && isAuthenticated) {
+        // 已登录：按账号等级分流（0=顾客 / 1=打手）
+        const level = getEffectiveUserLevel();
+        if (to.meta.customerOnly && level !== 0) {
+            next('/dashboard');
+            return;
+        }
+        if (to.meta.playerOnly && level !== 1) {
+            next('/dashboard');
+            return;
+        }
+        if (to.meta.minUserLevel != null && level < to.meta.minUserLevel) {
+            next('/dashboard');
+            return;
+        }
+        next();
+    }
     else if (isAuthPage && isAuthenticated) {
-        // 已登录访问登录/注册页，优先回跳 redirect，其次首页
+        // 已登录访问登录/注册页，优先回跳 redirect，其次首页（打手可回工作台）
         const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '';
         next(redirect || '/dashboard');
     }
     else {
-        // 其他情况正常跳转
         next();
     }
 });

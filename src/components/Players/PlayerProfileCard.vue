@@ -80,8 +80,15 @@
 
     <!-- 操作按钮（根据模式调整） -->
     <div class="card-actions">
-      <button class="btn book-btn" @click="$emit('book-now')">
-        立即预约
+      <button
+        type="button"
+        class="btn book-btn"
+        :disabled="bookLoading"
+        :aria-busy="bookLoading"
+        @click="$emit('book-now')"
+      >
+        <i v-if="bookLoading" class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>{{ bookLoading ? '跳转中…' : '立即预约' }}</span>
       </button>
       <button 
         class="btn detail-btn" 
@@ -122,6 +129,11 @@ const props = defineProps({
   isCompact: {
     type: Boolean,
     default: false  // 默认完整模式
+  },
+  /** 父级预约跳转进行中，防止重复点击 */
+  bookLoading: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -329,8 +341,17 @@ const emit = defineEmits(['book-now', 'view-detail']);
   color: white;
 }
 
-.book-btn:hover {
+.book-btn:hover:not(:disabled) {
   background-color: #2563eb;
+}
+
+.book-btn:disabled {
+  opacity: 0.8;
+  cursor: wait;
+}
+
+.book-btn .fa-spinner {
+  margin-right: 0.35rem;
 }
 
 .detail-btn {

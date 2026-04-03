@@ -27,7 +27,7 @@
             <h3 class="link-title">关于我们</h3>
             <ul class="link-list">
               <li><router-link to="/about">平台介绍</router-link></li>
-              <li><router-link to="/recruit">打手招募</router-link></li>
+              <li><router-link to="/join-us">加入我们 · 成为打手</router-link></li>
               <li><router-link to="/terms">服务条款</router-link></li>
               <li><router-link to="/privacy">隐私政策</router-link></li>
             </ul>

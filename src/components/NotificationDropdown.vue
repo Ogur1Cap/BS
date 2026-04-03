@@ -36,21 +36,21 @@
       <!-- 通知列表 -->
       <div class="notification-list">
         <!-- 加载状态 -->
-        <div class="loading-state" v-if="isLoading && notifications.length === 0">
+        <div class="loading-state" v-if="isLoading && items.length === 0">
           <i class="fa fa-spinner fa-spin"></i>
           <span>加载通知中...</span>
         </div>
         
         <!-- 空状态 -->
-        <div class="empty-state" v-if="!isLoading && notifications.length === 0">
+        <div class="empty-state" v-if="!isLoading && items.length === 0">
           <i class="fa fa-bell-o"></i>
           <p>暂无通知</p>
         </div>
         
-        <!-- 通知项 -->
+        <!-- 通知项（仅预览最近 8 条，完整列表见通知中心） -->
         <div 
           class="notification-item"
-          v-for="notification in notifications"
+          v-for="notification in previewList"
           :key="notification.id"
           :class="{ 'unread': !notification.isRead }"
           @click="handleNotificationClick(notification)"
@@ -71,10 +71,15 @@
           <div class="notification-actions">
             <button 
               class="action-btn delete-btn"
+              type="button"
+              :disabled="deletingId === notification.id"
               @click.stop="handleDeleteNotification(notification.id)"
-              aria-label="删除通知"
+              :aria-label="deletingId === notification.id ? '正在删除' : '删除通知'"
             >
-              <i class="fa fa-trash-o"></i>
+              <i
+                class="fa"
+                :class="deletingId === notification.id ? 'fa-spinner fa-spin' : 'fa-trash-o'"
+              ></i>
             </button>
             <button 
               class="action-btn read-btn"
@@ -89,7 +94,7 @@
       </div>
       
       <!-- 查看全部链接 -->
-      <div class="dropdown-footer" v-if="notifications.length > 0">
+      <div class="dropdown-footer" v-if="items.length > 0">
         <router-link to="/notifications" class="view-all">查看全部通知</router-link>
       </div>
     </div>
@@ -97,31 +102,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { notificationService } from '../services/notificationService';
-import { Notification } from '../types/notification';
+import { storeToRefs } from 'pinia';
+import { useNotificationStore } from '../stores/notifications';
+import { notificationsApi } from '../api/notificationsApi';
+import type { Notification } from '../types/notification';
 
-// 状态
+const notificationStore = useNotificationStore();
+const { items, unreadCount } = storeToRefs(notificationStore);
+
+/** 下拉内只展示最近几条，减少首屏高度 */
+const previewList = computed(() => items.value.slice(0, 8));
+
 const isOpen = ref(false);
-const notifications = ref<Notification[]>([]);
 const isLoading = ref(true);
-const unreadCount = computed(() => {
-  return notifications.value.filter(notification => !notification.isRead).length;
-});
+/** 单条删除中，避免连点 */
+const deletingId = ref<string | null>(null);
 
-// 路由
 const router = useRouter();
+// 浏览器下 setInterval 返回 number，与 Node 类型定义中的 Timeout 不同，这里显式标注避免 vue-tsc 报错
+let pollTimer: number | null = null;
 
 // 切换下拉菜单
 const toggleDropdown = () => {
   isOpen.value = !isOpen.value;
-  
-  // 打开时如果有未读通知，自动标记为已读（可选功能）
-  // if (isOpen.value && unreadCount.value > 0) {
-  //   handleMarkAllAsRead();
-  // }
+  if (isOpen.value) {
+    void refreshForOpen();
+  }
 };
+
+async function refreshForOpen() {
+  isLoading.value = true;
+  try {
+    await notificationStore.refreshList();
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 // 获取通知图标
 const getNotificationIcon = (type: string) => {
@@ -173,24 +191,11 @@ const formatTime = (dateString: string) => {
   }
 };
 
-// 加载通知
-const loadNotifications = async () => {
-  try {
-    isLoading.value = true;
-    const data = await notificationService.getNotifications();
-    notifications.value = data;
-  } catch (error) {
-    console.error('加载通知失败:', error);
-  } finally {
-    isLoading.value = false;
-  }
-};
-
 // 标记通知为已读
 const handleMarkAsRead = async (notificationId: string) => {
   try {
-    const updatedNotifications = await notificationService.markAsRead(notificationId);
-    notifications.value = updatedNotifications;
+    const list = await notificationsApi.markAsRead(notificationId);
+    notificationStore.applyListFromApi(list);
   } catch (error) {
     console.error('标记通知为已读失败:', error);
   }
@@ -200,8 +205,8 @@ const handleMarkAsRead = async (notificationId: string) => {
 const handleMarkAllRead = async () => {
   try {
     isLoading.value = true;
-    const updatedNotifications = await notificationService.markAllAsRead();
-    notifications.value = updatedNotifications;
+    const list = await notificationsApi.markAllAsRead();
+    notificationStore.applyListFromApi(list);
   } catch (error) {
     console.error('标记所有通知为已读失败:', error);
   } finally {
@@ -209,13 +214,19 @@ const handleMarkAllRead = async () => {
   }
 };
 
-// 删除通知
+// 删除通知（确认 + 同步顶栏未读数）
 const handleDeleteNotification = async (notificationId: string) => {
+  if (!window.confirm('删除这条通知？')) return;
+  if (deletingId.value) return;
+  deletingId.value = notificationId;
   try {
-    const updatedNotifications = await notificationService.deleteNotification(notificationId);
-    notifications.value = updatedNotifications;
+    const list = await notificationsApi.deleteNotification(notificationId);
+    notificationStore.applyListFromApi(list);
+    void notificationStore.refreshUnreadCount().catch(() => {});
   } catch (error) {
     console.error('删除通知失败:', error);
+  } finally {
+    deletingId.value = null;
   }
 };
 
@@ -239,17 +250,33 @@ const handleNotificationClick = (notification: Notification) => {
   isOpen.value = false;
 };
 
-// 初始化加载通知
 onMounted(() => {
-  loadNotifications();
-  
-  // 点击外部关闭下拉菜单
+  isLoading.value = true;
+  void notificationStore
+    .refreshList()
+    .catch(() => {})
+    .finally(() => {
+      isLoading.value = false;
+    });
+
+  // 定时同步未读角标（与通知中心、后端数据一致）
+  pollTimer = window.setInterval(() => {
+    void notificationStore.refreshUnreadCount().catch(() => {});
+  }, 50000);
+
   document.addEventListener('click', (e) => {
     const container = document.querySelector('.notification-container');
     if (container && !container.contains(e.target as Node)) {
       isOpen.value = false;
     }
   });
+});
+
+onUnmounted(() => {
+  if (pollTimer != null) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
 });
 </script>
 
@@ -491,9 +518,14 @@ onMounted(() => {
   transition: all 0.2s ease;
 }
 
-.action-btn:hover {
+.action-btn:hover:not(:disabled) {
   background-color: rgba(55, 65, 81, 0.5);
   color: #f3f4f6;
+}
+
+.action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .delete-btn:hover {

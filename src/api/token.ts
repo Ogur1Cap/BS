@@ -5,6 +5,8 @@ export type StoredUser = {
   avatar?: string
   email?: string
   phone?: string
+  /** 0=顾客 1=打手，与 JWT /profile 一致 */
+  userLevel?: number
 }
 
 const TOKEN_KEY = 'delta_token'

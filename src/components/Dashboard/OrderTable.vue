@@ -48,7 +48,7 @@ export interface Order {
   id: string;
   game: string;
   serviceType: string;
-  status: 'completed' | 'ongoing' | 'pending' | 'cancelled';
+  status: 'completed' | 'ongoing' | 'pending' | 'cancelled' | 'completion_pending' | 'refund_requested' | 'refunded';
   statusText: string;
   date: string;
 }
@@ -80,6 +80,8 @@ const getOrderStatusClass = (status: string) => {
       return 'status-completed';
     case 'ongoing':
       return 'status-ongoing';
+    case 'completion_pending':
+      return 'status-completion-pending';
     case 'pending':
       return 'status-pending';
     case 'cancelled':
@@ -206,6 +208,11 @@ tr:last-child td {
 .status-ongoing {
   background-color: rgba(59, 130, 246, 0.1);
   color: #3b82f6;
+}
+
+.status-completion-pending {
+  background-color: rgba(168, 85, 247, 0.12);
+  color: #c084fc;
 }
 
 .status-pending {

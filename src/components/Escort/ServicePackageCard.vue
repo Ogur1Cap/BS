@@ -28,8 +28,8 @@
         <span class="duration">{{ duration }}</span>
       </div>
       
-      <button class="select-btn" @click="$emit('select')">
-        选择服务
+      <button type="button" class="select-btn" @click="$emit('select')">
+        立即预约
       </button>
     </div>
   </div>

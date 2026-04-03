@@ -165,11 +165,11 @@
             <div v-if="activeMarker" class="gm-edit">
               <label class="gm-field">
                 <span>名称</span>
-                <input v-model="activeMarker.label" class="gm-input" />
+                <input v-model="activeMarker.label" class="gm-input" @blur="persistActiveMarker" />
               </label>
               <label class="gm-field">
                 <span>备注</span>
-                <textarea v-model="activeMarker.note" class="gm-textarea" rows="3"></textarea>
+                <textarea v-model="activeMarker.note" class="gm-textarea" rows="3" @blur="persistActiveMarker"></textarea>
               </label>
             </div>
           </div>
@@ -186,6 +186,9 @@ import { useRouter } from 'vue-router'
 import Header from '../layouts/Header.vue'
 import Footer from '../layouts/Footer.vue'
 import zeroMap from '../image/Zero.jpeg'
+import { isMockMode } from '../api/apiMode'
+import { gameMapApi } from '../api/gameMapApi'
+import type { MapMarkerDto } from '../types/gameMap'
 
 type DrawMode = 'inspect' | 'mark'
 type SceneMode = 'normal' | 'attack' | 'occupy'
@@ -248,7 +251,7 @@ const floorOptions = [
   { value: 4, label: '4F' }
 ] as const
 
-const allPois = ref<Poi[]>([
+const defaultPois: Poi[] = [
   { id: 'p1', name: '行政补给站', x: 360, y: 250, floor: 1, type: 'resource', modes: ['normal', 'attack'], security: ['normal', 'secret'] },
   { id: 'p2', name: '观察塔出生点', x: 210, y: 780, floor: 1, type: 'spawn', modes: ['normal', 'occupy'], security: ['normal', 'secret', 'top-secret'] },
   { id: 'p3', name: '下水道撤离点', x: 1460, y: 1020, floor: 1, type: 'extract', modes: ['normal'], security: ['normal', 'secret'] },
@@ -256,7 +259,49 @@ const allPois = ref<Poi[]>([
   { id: 'p5', name: '装甲补给车位', x: 820, y: 680, floor: 2, type: 'vehicle', modes: ['occupy', 'attack'], security: ['normal', 'secret'] },
   { id: 'p6', name: '指挥层资源箱', x: 970, y: 300, floor: 3, type: 'resource', modes: ['normal', 'attack'], security: ['secret', 'top-secret'] },
   { id: 'p7', name: '顶层临时撤离', x: 1540, y: 190, floor: 4, type: 'extract', modes: ['occupy'], security: ['top-secret'] }
-])
+]
+
+const allPois = ref<Poi[]>([...defaultPois])
+
+/** 后端 POI 行 → 画布逻辑用的结构 */
+function poiFromApiRow(raw: Record<string, unknown>): Poi {
+  const f = Number(raw.floor)
+  const floor = (f >= 1 && f <= 4 ? f : 1) as Floor
+  return {
+    id: String(raw.id),
+    name: String(raw.name ?? ''),
+    x: Number(raw.x),
+    y: Number(raw.y),
+    floor,
+    type: (raw.type as PoiType) || 'resource',
+    modes: (Array.isArray(raw.modes) ? raw.modes : ['normal']) as SceneMode[],
+    security: (Array.isArray(raw.security) ? raw.security : ['normal']) as Security[]
+  }
+}
+
+function toLocalMarker(d: MapMarkerDto): Marker {
+  return {
+    id: String(d.id),
+    x: Number(d.x),
+    y: Number(d.y),
+    label: d.label,
+    note: d.note ?? ''
+  }
+}
+
+/** 名称 / 备注失焦时同步到后端（真实模式） */
+async function persistActiveMarker() {
+  const m = activeMarker.value
+  if (!m || isMockMode()) return
+  try {
+    const list = await gameMapApi.updateMarker(m.id, { label: m.label, note: m.note })
+    markers.value = list.map(toLocalMarker)
+    activeMarkerId.value = m.id
+  } catch {
+    /* 网络异常时保留本地编辑，不打扰操作 */
+  }
+  scheduleRender()
+}
 
 const markers = ref<Marker[]>([])
 const activeMarkerId = ref<string | null>(null)
@@ -550,9 +595,23 @@ function onPointerUp(e: PointerEvent) {
   selectedWorld.value = { x: clamped.x, y: clamped.y }
 
   if (mode.value === 'mark') {
-    const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`
-    markers.value.push({ id, x: clamped.x, y: clamped.y, label: `标记 ${markers.value.length + 1}`, note: '' })
-    activeMarkerId.value = id
+    const label = `标记 ${markers.value.length + 1}`
+    if (isMockMode()) {
+      const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`
+      markers.value.push({ id, x: clamped.x, y: clamped.y, label, note: '' })
+      activeMarkerId.value = id
+    } else {
+      void gameMapApi
+        .addMarker({ x: clamped.x, y: clamped.y, label, note: '' })
+        .then((list) => {
+          markers.value = list.map(toLocalMarker)
+          activeMarkerId.value = markers.value[0]?.id ?? null
+          scheduleRender()
+        })
+        .catch(() => {
+          scheduleRender()
+        })
+    }
     scheduleRender()
     return
   }
@@ -597,17 +656,44 @@ function adjustZoom(direction: 1 | -1) {
   centerMap()
   scheduleRender()
 }
-function clearMarkers() {
+async function clearMarkers() {
   if (!markers.value.length) return
   if (!confirm('确定清空所有标记吗？')) return
-  markers.value = []
-  activeMarkerId.value = null
-  selectedWorld.value = null
+  if (isMockMode()) {
+    markers.value = []
+    activeMarkerId.value = null
+    selectedWorld.value = null
+    scheduleRender()
+    return
+  }
+  const ids = markers.value.map((m) => m.id)
+  try {
+    let last: MapMarkerDto[] = []
+    for (const id of ids) {
+      last = await gameMapApi.deleteMarker(id)
+    }
+    markers.value = last.map(toLocalMarker)
+    activeMarkerId.value = null
+    selectedWorld.value = null
+  } catch {
+    /* 忽略 */
+  }
   scheduleRender()
 }
-function deleteMarker(id: string) {
-  markers.value = markers.value.filter((m) => m.id !== id)
-  if (activeMarkerId.value === id) activeMarkerId.value = null
+async function deleteMarker(id: string) {
+  if (isMockMode()) {
+    markers.value = markers.value.filter((m) => m.id !== id)
+    if (activeMarkerId.value === id) activeMarkerId.value = null
+    scheduleRender()
+    return
+  }
+  try {
+    const list = await gameMapApi.deleteMarker(id)
+    markers.value = list.map(toLocalMarker)
+    if (activeMarkerId.value === id) activeMarkerId.value = null
+  } catch {
+    /* 忽略 */
+  }
   scheduleRender()
 }
 function selectMarker(id: string) {
@@ -665,6 +751,22 @@ onMounted(async () => {
     }
   } catch {
     // ignore parse error
+  }
+
+  // 真实后端：同步官方 POI 与用户标记（失败则沿用页面内置默认数据）
+  if (!isMockMode()) {
+    try {
+      const pois = await gameMapApi.listPois()
+      if (pois.length) {
+        allPois.value = pois.map((row) => poiFromApiRow(row as Record<string, unknown>))
+      } else {
+        allPois.value = [...defaultPois]
+      }
+      const ms = await gameMapApi.listMarkers()
+      markers.value = ms.map(toLocalMarker)
+    } catch {
+      allPois.value = [...defaultPois]
+    }
   }
 
   await nextTick()

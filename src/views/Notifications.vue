@@ -24,11 +24,12 @@
             </button>
             <button 
               class="delete-all-btn"
+              type="button"
               @click="handleDeleteAll"
-              :disabled="isLoading || notifications.length === 0"
+              :disabled="isLoading || clearingAll || notifications.length === 0"
             >
-              <i class="fa fa-trash-o"></i>
-              <span>清空通知</span>
+              <i class="fa" :class="clearingAll ? 'fa-spinner fa-spin' : 'fa-trash-o'"></i>
+              <span>{{ clearingAll ? '清空中…' : '清空通知' }}</span>
             </button>
           </div>
         </div>
@@ -108,6 +109,8 @@
                 <div class="notification-actions">
                   <button 
                     class="action-btn read-btn"
+                    type="button"
+                    :disabled="clearingAll || deletingId === notification.id"
                     @click="handleMarkAsRead(notification.id)"
                     v-if="!notification.isRead"
                   >
@@ -115,9 +118,15 @@
                   </button>
                   <button 
                     class="action-btn delete-btn"
+                    type="button"
+                    :disabled="deletingId === notification.id || clearingAll"
                     @click="handleDeleteNotification(notification.id)"
                   >
-                    <i class="fa fa-trash-o"></i> 删除
+                    <i
+                      class="fa"
+                      :class="deletingId === notification.id ? 'fa-spinner fa-spin' : 'fa-trash-o'"
+                    ></i>
+                    {{ deletingId === notification.id ? '删除中…' : '删除' }}
                   </button>
                 </div>
               </div>
@@ -129,14 +138,23 @@
 
     <!-- 页脚 -->
     <Footer />
+
+    <!-- 操作结果轻提示 -->
+    <Transition name="toast-fade">
+      <div v-if="toastVisible" class="notif-toast" :class="'notif-toast--' + toastType" role="status">
+        <i class="fa" :class="toastType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
+        <span>{{ toastMessage }}</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { notificationService } from '../services/notificationService';
-import { Notification } from '../types/notification';
+import { storeToRefs } from 'pinia';
+import { useNotificationStore } from '../stores/notifications';
+import { notificationsApi } from '../api/notificationsApi';
 
 // 导入组件
 import Header from '../layouts/Header.vue';
@@ -144,26 +162,43 @@ import Footer from '../layouts/Footer.vue';
 
 // 路由实例
 const router = useRouter();
+const notificationStore = useNotificationStore();
+const { items: notifications } = storeToRefs(notificationStore);
 
 // 状态
 const currentUser = ref<{ username: string } | undefined>(undefined);
 const userAvatar = ref('https://picsum.photos/id/237/200/200');
-const notifications = ref<Notification[]>([]);
 const isLoading = ref(true);
 const activeFilter = ref('all');
+/** 单条删除中（防重复点击） */
+const deletingId = ref<string | null>(null);
+/** 批量清空进行中 */
+const clearingAll = ref(false);
+const toastVisible = ref(false);
+const toastMessage = ref('');
+const toastType = ref<'success' | 'error'>('success');
+
+function showToast(message: string, type: 'success' | 'error') {
+  toastMessage.value = message;
+  toastType.value = type;
+  toastVisible.value = true;
+  window.setTimeout(() => {
+    toastVisible.value = false;
+  }, 2800);
+}
 
 // 计算属性
 const unreadCount = computed(() => {
-  return notifications.value.filter(notification => !notification.isRead).length;
+  return notifications.value.filter((notification) => !notification.isRead).length;
 });
 
 const filteredNotifications = computed(() => {
   if (activeFilter.value === 'all') {
     return notifications.value;
   } else if (activeFilter.value === 'unread') {
-    return notifications.value.filter(notification => !notification.isRead);
+    return notifications.value.filter((notification) => !notification.isRead);
   } else {
-    return notifications.value.filter(notification => notification.type === activeFilter.value);
+    return notifications.value.filter((notification) => notification.type === activeFilter.value);
   }
 });
 
@@ -207,12 +242,11 @@ const formatTime = (dateString: string) => {
   });
 };
 
-// 加载通知
+// 加载通知（写入全局 store，顶栏角标同步）
 const loadNotifications = async () => {
   try {
     isLoading.value = true;
-    const data = await notificationService.getNotifications();
-    notifications.value = data;
+    await notificationStore.refreshList();
   } catch (error) {
     console.error('加载通知失败:', error);
   } finally {
@@ -223,8 +257,8 @@ const loadNotifications = async () => {
 // 标记通知为已读
 const handleMarkAsRead = async (notificationId: string) => {
   try {
-    const updatedNotifications = await notificationService.markAsRead(notificationId);
-    notifications.value = updatedNotifications;
+    const list = await notificationsApi.markAsRead(notificationId);
+    notificationStore.applyListFromApi(list);
   } catch (error) {
     console.error('标记通知为已读失败:', error);
   }
@@ -234,8 +268,8 @@ const handleMarkAsRead = async (notificationId: string) => {
 const handleMarkAllRead = async () => {
   try {
     isLoading.value = true;
-    const updatedNotifications = await notificationService.markAllAsRead();
-    notifications.value = updatedNotifications;
+    const list = await notificationsApi.markAllAsRead();
+    notificationStore.applyListFromApi(list);
   } catch (error) {
     console.error('标记所有通知为已读失败:', error);
   } finally {
@@ -243,31 +277,42 @@ const handleMarkAllRead = async () => {
   }
 };
 
-// 删除通知
+// 删除通知（二次确认 + 加载态 + 结果提示）
 const handleDeleteNotification = async (notificationId: string) => {
+  if (!window.confirm('确定删除这条通知？删除后无法恢复。')) return;
+  if (deletingId.value) return;
+  deletingId.value = notificationId;
   try {
-    const updatedNotifications = await notificationService.deleteNotification(notificationId);
-    notifications.value = updatedNotifications;
+    const list = await notificationsApi.deleteNotification(notificationId);
+    notificationStore.applyListFromApi(list);
+    void notificationStore.refreshUnreadCount().catch(() => {});
+    showToast('通知已删除', 'success');
   } catch (error) {
     console.error('删除通知失败:', error);
+    showToast('删除失败，请稍后重试', 'error');
+  } finally {
+    deletingId.value = null;
   }
 };
 
-// 清空所有通知（实际项目中可能需要更复杂的逻辑）
+// 清空当前账号可见的全部通知
 const handleDeleteAll = async () => {
-  if (confirm('确定要清空所有通知吗？此操作不可恢复。')) {
-    try {
-      isLoading.value = true;
-      // 这里只是简单地删除所有通知，实际项目中应该调用专门的API
-      notifications.value.forEach(notification => {
-        notificationService.deleteNotification(notification.id);
-      });
-      notifications.value = [];
-    } catch (error) {
-      console.error('清空通知失败:', error);
-    } finally {
-      isLoading.value = false;
+  if (!window.confirm('确定清空全部通知？删除后无法恢复。')) return;
+  const ids = notificationStore.items.map((n) => n.id);
+  if (ids.length === 0) return;
+  clearingAll.value = true;
+  try {
+    for (const id of ids) {
+      const list = await notificationsApi.deleteNotification(id);
+      notificationStore.applyListFromApi(list);
     }
+    void notificationStore.refreshUnreadCount().catch(() => {});
+    showToast('已清空全部通知', 'success');
+  } catch (error) {
+    console.error('清空通知失败:', error);
+    showToast('清空失败，请稍后重试', 'error');
+  } finally {
+    clearingAll.value = false;
   }
 };
 
@@ -572,8 +617,52 @@ onMounted(() => {
   background-color: rgba(239, 68, 68, 0.1);
 }
 
-.delete-btn:hover {
+.delete-btn:hover:not(:disabled) {
   background-color: rgba(239, 68, 68, 0.2);
+}
+
+.action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* 底部轻提示 */
+.notif-toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+.notif-toast--success {
+  background: #064e3b;
+  color: #d1fae5;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.notif-toast--error {
+  background: #7f1d1d;
+  color: #fecaca;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(12px);
 }
 
 /* 动画 */

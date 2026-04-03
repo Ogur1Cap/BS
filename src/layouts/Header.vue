@@ -14,14 +14,20 @@
             <li class="nav-item" :class="{ 'active': isCurrentRoute('/dashboard') }">
               <router-link to="/dashboard" class="nav-link">首页</router-link>
             </li>
-            <li class="nav-item" :class="{ 'active': isCurrentRoute('/escort') }">
+            <li v-if="isCustomerNav" class="nav-item" :class="{ 'active': isCurrentRoute('/escort') }">
               <router-link to="/escort" class="nav-link">护航服务</router-link>
             </li>
             <li class="nav-item" :class="{ 'active': isCurrentRoute('/orders') }">
               <router-link to="/orders" class="nav-link">我的订单</router-link>
             </li>
-            <li class="nav-item" :class="{ 'active': isCurrentRoute('/play-hall') }">
+            <li v-if="isCustomerNav" class="nav-item" :class="{ 'active': isCurrentRoute('/play-hall') }">
               <router-link to="/play-hall" class="nav-link">打手大厅</router-link>
+            </li>
+            <li v-if="isPlayerNav" class="nav-item" :class="{ 'active': isCurrentRoute('/player-desk') }">
+              <router-link to="/player-desk" class="nav-link">打手工作台</router-link>
+            </li>
+            <li v-if="isBossNav" class="nav-item" :class="{ 'active': isCurrentRoute('/boss-desk') }">
+              <router-link to="/boss-desk" class="nav-link">BOSS 控制台</router-link>
             </li>
             <li class="nav-item" :class="{ 'active': isCurrentRoute('/game-map') }">
               <router-link to="/game-map" class="nav-link">游戏地图</router-link>
@@ -63,6 +69,16 @@
                     <i class="fa fa-bell"></i> 通知中心
                   </router-link>
                 </li>
+                <li v-if="isPlayerNav" class="menu-item">
+                  <router-link to="/player-desk" class="menu-link">
+                    <i class="fa fa-briefcase"></i> 打手工作台
+                  </router-link>
+                </li>
+                <li v-if="isBossNav" class="menu-item">
+                  <router-link to="/boss-desk" class="menu-link">
+                    <i class="fa fa-shield"></i> BOSS 控制台
+                  </router-link>
+                </li>
                 <li class="menu-item">
                   <router-link to="/help-center" class="menu-link">
                     <i class="fa fa-question-circle"></i> 帮助中心
@@ -92,17 +108,26 @@
         <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/dashboard') }">
           <router-link to="/dashboard" class="mobile-nav-link" @click="closeMobileMenu">首页</router-link>
         </li>
-        <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/escort') }" >
+        <li v-if="isCustomerNav" class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/escort') }" >
           <router-link to="/escort" class="mobile-nav-link" @click="closeMobileMenu">护航服务</router-link>
         </li>
         <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/orders') }">
           <router-link to="/orders" class="mobile-nav-link" @click="closeMobileMenu">我的订单</router-link>
         </li>
-        <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/play-hall') }">
+        <li v-if="isCustomerNav" class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/play-hall') }">
           <router-link to="/play-hall" class="mobile-nav-link" @click="closeMobileMenu">打手大厅</router-link>
         </li>
-        <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/customer-service') }">
-          <router-link to="/customer-service" class="mobile-nav-link" @click="closeMobileMenu">客服中心</router-link>
+        <li v-if="isPlayerNav" class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/player-desk') }">
+          <router-link to="/player-desk" class="mobile-nav-link" @click="closeMobileMenu">打手工作台</router-link>
+        </li>
+        <li v-if="isBossNav" class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/boss-desk') }">
+          <router-link to="/boss-desk" class="mobile-nav-link" @click="closeMobileMenu">BOSS 控制台</router-link>
+        </li>
+        <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/game-map') }">
+          <router-link to="/game-map" class="mobile-nav-link" @click="closeMobileMenu">游戏地图</router-link>
+        </li>
+        <li class="mobile-nav-item" :class="{ 'active': isCurrentRoute('/support-center') }">
+          <router-link to="/support-center" class="mobile-nav-link" @click="closeMobileMenu">客服中心</router-link>
         </li>
       </ul>
     </div>
@@ -111,9 +136,11 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
+import { getAuthUser } from '../api/token'
 import { useRouter } from 'vue-router'
 import NotificationDropdown from '../components/NotificationDropdown.vue'
 import { useUserStore } from '../stores/user'
+import { useNotificationStore } from '../stores/notifications'
 import { removeAuthToken, removeAuthUser } from '../api/token'
 
 // 可选覆盖（少数页面仍可传入）；默认使用全局用户仓库，保证全站一致
@@ -126,9 +153,25 @@ const emit = defineEmits<{ logout: [] }>()
 
 const router = useRouter()
 const userStore = useUserStore()
+const notificationStore = useNotificationStore()
 
 const displayName = computed(() => props.currentUser?.username?.trim() || userStore.displayName)
 const displayAvatar = computed(() => props.userAvatar?.trim() || userStore.resolvedAvatarUrl)
+
+const effLevel = computed(() => {
+  const p = userStore.profile?.userLevel
+  if (typeof p === 'number') return p
+  return getAuthUser()?.userLevel ?? 0
+})
+
+/** 仅顾客：护航、打手大厅 */
+const isCustomerNav = computed(() => effLevel.value === 0)
+
+/** 打手（1 级）：工作台入口 */
+const isPlayerNav = computed(() => effLevel.value === 1)
+
+/** BOSS（2 级+）：控制台 */
+const isBossNav = computed(() => effLevel.value >= 2)
 
 const profileMenuOpen = ref(false)
 const mobileMenuOpen = ref(false)
@@ -152,6 +195,7 @@ const closeMobileMenu = () => {
 
 const handleLogout = () => {
   userStore.clear()
+  notificationStore.clearLocal()
   removeAuthToken()
   removeAuthUser()
   emit('logout')
