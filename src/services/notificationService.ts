@@ -1,4 +1,4 @@
-import { Notification } from '../types/notification';
+import type { Notification } from '../types/notification';
 
 import { notificationsApi } from '../api/notificationsApi';
 

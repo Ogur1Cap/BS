@@ -5,7 +5,7 @@
         <div class="footer-brand">
           <div class="brand-logo">
             <i class="fa fa-shield"></i>
-            <span class="logo-text">三角洲行动俱乐部</span>
+            <span class="logo-text">栗帽游戏服务平台</span>
           </div>
           <p class="brand-desc">专业的游戏护航服务平台，为玩家提供安全、高效的游戏体验提升服务</p>
           <!-- 新增品牌区域装饰线 -->
@@ -46,7 +46,7 @@
       </div>
       
       <div class="footer-bottom">
-        <p class="copyright">© 2023 三角洲行动俱乐部 版权所有 | 本服务仅供娱乐，请勿沉迷游戏</p>
+        <p class="copyright">© 2023 栗帽游戏服务平台 版权所有 | 本服务仅供娱乐，请勿沉迷游戏</p>
       </div>
     </div>
   </footer>

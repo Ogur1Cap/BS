@@ -1,117 +1,111 @@
 <template>
-  <div class="register-page">
-    <!-- 注册卡片 -->
+  <div
+    class="register-page"
+    :style="pointerStyle"
+    @mousemove="onPointerMove"
+    @mouseleave="onPointerLeave"
+  >
+    <div class="auth-backdrop" aria-hidden="true" />
+    <div class="auth-shell register-shell">
     <div class="register-card">
-      <!-- 顶部品牌区域 -->
-      <div class="brand-header">
-        <div class="brand-decoration"></div>
-        <h1 class="brand-title">账号注册</h1>
-        <p class="brand-subtitle">加入三角洲行动俱乐部，享受专业服务</p>
-      </div>
+      <header class="auth-header">
+        <h1 class="auth-title">账号注册</h1>
+        <p class="auth-subtitle">加入栗帽游戏服务平台，享受专业服务</p>
+      </header>
 
-      <!-- 注册表单 -->
       <div class="form-container">
-        <form @submit.prevent="handleRegister" class="register-form">
-          <!-- 用户名输入 -->
+        <form class="register-form" @submit.prevent="handleRegister">
           <div class="form-group">
             <label for="username" class="form-label">用户名</label>
             <div class="input-wrapper">
-              <span class="input-icon">
+              <span class="input-icon" aria-hidden="true">
                 <i class="fa fa-user"></i>
               </span>
               <input
-                type="text"
                 id="username"
                 v-model="form.username"
-                :class="{'input-error': errors.username}"
+                type="text"
                 class="form-input"
+                :class="{ 'input-error': errors.username }"
                 placeholder="请设置用户名"
                 required
-              >
+              />
             </div>
             <p v-if="errors.username" class="error-message">{{ errors.username }}</p>
           </div>
 
-          <!-- 邮箱输入 -->
           <div class="form-group">
             <label for="email" class="form-label">邮箱</label>
             <div class="input-wrapper">
-              <span class="input-icon">
+              <span class="input-icon" aria-hidden="true">
                 <i class="fa fa-envelope"></i>
               </span>
               <input
-                type="email"
                 id="email"
                 v-model="form.email"
-                :class="{'input-error': errors.email}"
+                type="email"
                 class="form-input"
+                :class="{ 'input-error': errors.email }"
                 placeholder="请输入邮箱地址"
                 required
-              >
+              />
             </div>
             <p v-if="errors.email" class="error-message">{{ errors.email }}</p>
           </div>
 
-          <!-- 密码输入 -->
           <div class="form-group">
             <label for="password" class="form-label">密码</label>
             <div class="input-wrapper">
-              <span class="input-icon">
+              <span class="input-icon" aria-hidden="true">
                 <i class="fa fa-lock"></i>
               </span>
               <input
-                :type="showPassword ? 'text' : 'password'"
                 id="password"
                 v-model="form.password"
-                :class="{'input-error': errors.password}"
+                :type="showPassword ? 'text' : 'password'"
                 class="form-input"
+                :class="{ 'input-error': errors.password }"
                 placeholder="请设置密码（至少6位）"
                 required
-              >
-              <button
-                type="button"
-                @click="showPassword = !showPassword"
-                class="toggle-password"
-              >
+              />
+              <button type="button" class="toggle-password" @click="showPassword = !showPassword">
                 <i :class="showPassword ? 'fa fa-eye-slash' : 'fa fa-eye'"></i>
               </button>
             </div>
-            
-            <!-- 密码强度指示器 -->
+
             <div v-if="form.password" class="password-strength">
               <div class="strength-bar">
-                <div 
-                  :class="passwordStrengthClass"
+                <div
                   class="strength-indicator"
+                  :class="passwordStrengthClass"
                   :style="{ width: passwordStrengthWidth }"
-                ></div>
+                />
               </div>
               <p class="strength-text">{{ passwordStrengthText }}</p>
             </div>
-            
+
             <p v-if="errors.password" class="error-message">{{ errors.password }}</p>
           </div>
 
-          <!-- 确认密码输入 -->
           <div class="form-group">
             <label for="confirmPassword" class="form-label">确认密码</label>
             <div class="input-wrapper">
-              <span class="input-icon">
+              <span class="input-icon" aria-hidden="true">
                 <i class="fa fa-lock"></i>
               </span>
               <input
-                :type="showConfirmPassword ? 'text' : 'password'"
                 id="confirmPassword"
                 v-model="form.confirmPassword"
-                :class="{'input-error': errors.confirmPassword}"
+                :type="showConfirmPassword ? 'text' : 'password'"
                 class="form-input"
+                :class="{ 'input-error': errors.confirmPassword }"
                 placeholder="请再次输入密码"
                 required
-              >
+              />
               <button
                 type="button"
-                @click="showConfirmPassword = !showConfirmPassword"
                 class="toggle-password"
+                @click="showConfirmPassword = !showConfirmPassword"
               >
                 <i :class="showConfirmPassword ? 'fa fa-eye-slash' : 'fa fa-eye'"></i>
               </button>
@@ -119,328 +113,368 @@
             <p v-if="errors.confirmPassword" class="error-message">{{ errors.confirmPassword }}</p>
           </div>
 
-          <!-- 同意条款 -->
           <div class="terms-agreement">
             <div class="terms-checkbox">
               <input
                 id="terms"
                 v-model="form.agreeTerms"
                 type="checkbox"
-                :class="{'input-error': errors.agreeTerms}"
-                class="terms-checkbox-input peer"
-              >
-              <div class="terms-checkbox-custom"></div>
+                class="terms-checkbox-input"
+                :class="{ 'input-error': errors.agreeTerms }"
+              />
+              <div class="terms-checkbox-custom" />
             </div>
             <div class="terms-text">
-              <label for="terms" class="terms-label">我已阅读并同意<a href="#" class="terms-link">服务条款</a>和<a href="#" class="terms-link">隐私政策</a></label>
+              <label for="terms" class="terms-label">
+                我已阅读并同意<a href="#" class="terms-link">服务条款</a>和<a href="#" class="terms-link">隐私政策</a>
+              </label>
               <p v-if="errors.agreeTerms" class="error-message">{{ errors.agreeTerms }}</p>
             </div>
           </div>
 
-          <!-- 注册按钮 -->
-          <button
-            type="submit"
-            :disabled="isLoading"
-            class="register-button"
-          >
+          <button type="submit" class="register-button" :disabled="isLoading">
             <span v-if="!isLoading">注册账号</span>
-            <span v-if="isLoading" class="loading-indicator">
-              <i class="fa fa-spinner fa-spin mr-2"></i> 注册中...
+            <span v-else class="loading-indicator">
+              <i class="fa fa-spinner fa-spin"></i> 注册中...
             </span>
           </button>
         </form>
 
-        <!-- 登录链接 -->
         <p class="login-prompt">
           已有账号?
           <a href="/login" class="login-link">立即登录</a>
         </p>
       </div>
     </div>
-
-    <!-- 背景装饰 -->
-    <div class="background-decorations">
-      <div class="blob blob-1"></div>
-      <div class="blob blob-2"></div>
-      <div class="blob blob-3"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { authApi } from '../api/authApi';
+import { ref, reactive, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthPointerMotion } from '../composables/useAuthPointerMotion'
+import { authApi } from '../api/authApi'
 
-// 路由实例
-const router = useRouter();
+const router = useRouter()
 
-// 表单状态
+const { onPointerMove, onPointerLeave, pointerStyle } = useAuthPointerMotion()
+
 const form = reactive({
   username: '',
   email: '',
   password: '',
   confirmPassword: '',
   agreeTerms: false
-});
+})
 
-// 错误信息
 const errors = reactive({
   username: '',
   email: '',
   password: '',
   confirmPassword: '',
   agreeTerms: ''
-});
+})
 
-// 显示密码切换
-const showPassword = ref(false);
-const showConfirmPassword = ref(false);
+const showPassword = ref(false)
+const showConfirmPassword = ref(false)
+const isLoading = ref(false)
 
-// 加载状态
-const isLoading = ref(false);
-
-// 密码强度计算
 const passwordStrength = computed(() => {
-  if (form.password.length < 6) return 0;
-  
-  let strength = 1;
-  
-  // 包含数字
-  if (/\d/.test(form.password)) strength++;
-  
-  // 包含小写字母
-  if (/[a-z]/.test(form.password)) strength++;
-  
-  // 包含大写字母
-  if (/[A-Z]/.test(form.password)) strength++;
-  
-  // 包含特殊字符
-  if (/[^A-Za-z0-9]/.test(form.password)) strength++;
-  
-  return strength;
-});
+  if (form.password.length < 6) return 0
 
-// 密码强度相关样式和文本
+  let strength = 1
+  if (/\d/.test(form.password)) strength++
+  if (/[a-z]/.test(form.password)) strength++
+  if (/[A-Z]/.test(form.password)) strength++
+  if (/[^A-Za-z0-9]/.test(form.password)) strength++
+  return strength
+})
+
 const passwordStrengthClass = computed(() => {
   switch (passwordStrength.value) {
-    case 0: return 'strength-weak';
-    case 1: return 'strength-weak';
-    case 2: return 'strength-medium';
-    case 3: return 'strength-good';
-    case 4: return 'strength-strong';
-    default: return 'strength-weak';
+    case 0:
+      return 'strength-weak'
+    case 1:
+      return 'strength-weak'
+    case 2:
+      return 'strength-medium'
+    case 3:
+      return 'strength-good'
+    case 4:
+      return 'strength-strong'
+    default:
+      return 'strength-weak'
   }
-});
+})
 
 const passwordStrengthWidth = computed(() => {
-  return `${(passwordStrength.value / 4) * 100}%`;
-});
+  return `${(passwordStrength.value / 4) * 100}%`
+})
 
 const passwordStrengthText = computed(() => {
   switch (passwordStrength.value) {
-    case 0: return '密码长度至少6位';
-    case 1: return '弱密码：建议增加密码复杂度';
-    case 2: return '中密码：可以增加大写字母或特殊字符';
-    case 3: return '良好：再增加一种字符类型会更安全';
-    case 4: return '强密码：非常安全的密码';
-    default: return '';
+    case 0:
+      return '密码长度至少6位'
+    case 1:
+      return '弱密码：建议增加密码复杂度'
+    case 2:
+      return '中密码：可以增加大写字母或特殊字符'
+    case 3:
+      return '良好：再增加一种字符类型会更安全'
+    case 4:
+      return '强密码：非常安全的密码'
+    default:
+      return ''
   }
-});
+})
 
-// 表单验证
 const validateForm = (): boolean => {
-  let isValid = true;
-  
-  // 重置错误信息
-  Object.keys(errors).forEach(key => {
-    errors[key as keyof typeof errors] = '';
-  });
-  
-  // 验证用户名
-  if (!form.username.trim()) {
-    errors.username = '请输入用户名';
-    isValid = false;
-  } else if (form.username.length < 3 || form.username.length > 20) {
-    errors.username = '用户名长度必须在3-20个字符之间';
-    isValid = false;
-  } else if (!/^[a-zA-Z0-9_]+$/.test(form.username)) {
-    errors.username = '用户名只能包含字母、数字和下划线';
-    isValid = false;
-  }
-  
-  // 验证邮箱
-  if (!form.email.trim()) {
-    errors.email = '请输入邮箱地址';
-    isValid = false;
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-    errors.email = '请输入有效的邮箱地址';
-    isValid = false;
-  }
-  
-  // 验证密码
-  if (!form.password) {
-    errors.password = '请输入密码';
-    isValid = false;
-  } else if (form.password.length < 6) {
-    errors.password = '密码长度不能少于6位';
-    isValid = false;
-  }
-  
-  // 验证确认密码
-  if (!form.confirmPassword) {
-    errors.confirmPassword = '请再次输入密码';
-    isValid = false;
-  } else if (form.confirmPassword !== form.password) {
-    errors.confirmPassword = '两次输入的密码不一致';
-    isValid = false;
-  }
-  
-  // 验证同意条款
-  if (!form.agreeTerms) {
-    errors.agreeTerms = '请阅读并同意服务条款和隐私政策';
-    isValid = false;
-  }
-  
-  return isValid;
-};
+  let isValid = true
+  Object.keys(errors).forEach((key) => {
+    errors[key as keyof typeof errors] = ''
+  })
 
-// 处理注册
-const handleRegister = async () => {
-  // 表单验证
-  if (!validateForm()) {
-    return;
+  if (!form.username.trim()) {
+    errors.username = '请输入用户名'
+    isValid = false
+  } else if (form.username.length < 3 || form.username.length > 20) {
+    errors.username = '用户名长度必须在3-20个字符之间'
+    isValid = false
+  } else if (!/^[a-zA-Z0-9_]+$/.test(form.username)) {
+    errors.username = '用户名只能包含字母、数字和下划线'
+    isValid = false
   }
-  
-  // 显示加载状态
-  isLoading.value = true;
-  
+
+  if (!form.email.trim()) {
+    errors.email = '请输入邮箱地址'
+    isValid = false
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    errors.email = '请输入有效的邮箱地址'
+    isValid = false
+  }
+
+  if (!form.password) {
+    errors.password = '请输入密码'
+    isValid = false
+  } else if (form.password.length < 6) {
+    errors.password = '密码长度不能少于6位'
+    isValid = false
+  }
+
+  if (!form.confirmPassword) {
+    errors.confirmPassword = '请再次输入密码'
+    isValid = false
+  } else if (form.confirmPassword !== form.password) {
+    errors.confirmPassword = '两次输入的密码不一致'
+    isValid = false
+  }
+
+  if (!form.agreeTerms) {
+    errors.agreeTerms = '请阅读并同意服务条款和隐私政策'
+    isValid = false
+  }
+
+  return isValid
+}
+
+const handleRegister = async () => {
+  if (!validateForm()) {
+    return
+  }
+
+  isLoading.value = true
+
   try {
     await authApi.register({ username: form.username, email: form.email, password: form.password })
-    
-    // 模拟注册成功，跳转到登录页
+
     router.push({
       path: '/login',
       query: { registered: 'true' }
-    });
-    
+    })
   } catch (error) {
-    console.error('注册失败:', error);
-    alert('注册失败，请稍后重试');
+    console.error('注册失败:', error)
+    alert('注册失败，请稍后重试')
   } finally {
-    isLoading.value = false;
+    isLoading.value = false
   }
-};
+}
 </script>
 
 <style scoped>
-/* 页面容器 */
+/* 与登录页同套背景与偏左布局；注册表单较长时从上方留白滚动 */
 .register-page {
+  --auth-surface: #151b22;
+  --auth-border: #2a3441;
+  --auth-muted: #8b949e;
+  --auth-text: #e6edf3;
+  --auth-accent: #3d8bfd;
+  --auth-accent-hover: #2f7ce8;
+  --ptr-x: 0;
+  --ptr-y: 0;
+
+  position: relative;
   min-height: 100vh;
-  background: linear-gradient(to bottom right, #111827, #1f2937);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  position: relative;
-}
-
-/* 注册卡片 */
-.register-card {
-  width: 100%;
-  max-width: 28rem;
-  background: rgba(31, 41, 55, 0.5);
-  backdrop-filter: blur(0.25rem);
-  border-radius: 1rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  transition: all 0.3s ease;
-}
-
-.register-card:hover {
-  box-shadow: 0 0 30px rgba(59, 130, 246, 0.25);
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-/* 品牌头部 */
-.brand-header {
-  background: linear-gradient(to right, #2563eb, #4f46e5);
-  padding: 1.5rem;
-  text-align: center;
-  position: relative;
   overflow: hidden;
 }
 
-.brand-decoration {
-  position: absolute;
-  inset: 0;
-  opacity: 0.1;
-}
-
-.brand-decoration::before,
-.brand-decoration::after {
+.register-page::after {
   content: '';
   position: absolute;
-  border-radius: 50%;
-  background: white;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    closest-side at calc(50% + var(--ptr-x) * 28vw) calc(45% + var(--ptr-y) * 22vh),
+    rgba(61, 139, 253, 0.14) 0%,
+    transparent 58%
+  );
+  opacity: 0.75;
 }
 
-.brand-decoration::before {
-  right: -2.5rem;
-  top: -2.5rem;
-  width: 10rem;
-  height: 10rem;
+.auth-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 90% 70% at 8% 45%, rgba(55, 95, 125, 0.38) 0%, transparent 52%),
+    radial-gradient(ellipse 65% 55% at 92% 78%, rgba(35, 65, 105, 0.32) 0%, transparent 48%),
+    radial-gradient(ellipse 50% 40% at 55% 12%, rgba(61, 139, 253, 0.1) 0%, transparent 45%),
+    linear-gradient(168deg, #070a0f 0%, #0c131c 42%, #0a1018 100%);
+  transform: translate3d(calc(var(--ptr-x) * -14px), calc(var(--ptr-y) * -10px), 0);
+  will-change: transform;
 }
 
-.brand-decoration::after {
-  left: 2.5rem;
-  bottom: 1.25rem;
-  width: 5rem;
-  height: 5rem;
+.auth-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  transform: translate3d(calc(var(--ptr-x) * 8px), calc(var(--ptr-y) * 6px), 0);
+  background-image:
+    repeating-linear-gradient(
+      -18deg,
+      transparent,
+      transparent 11px,
+      rgba(255, 255, 255, 0.022) 11px,
+      rgba(255, 255, 255, 0.022) 12px
+    ),
+    repeating-linear-gradient(
+      72deg,
+      transparent,
+      transparent 48px,
+      rgba(255, 255, 255, 0.018) 48px,
+      rgba(255, 255, 255, 0.018) 49px
+    );
 }
 
-.brand-title {
-  font-size: clamp(1.5rem, 5vw, 2rem);
-  font-weight: bold;
-  color: white;
+.auth-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translate3d(calc(var(--ptr-x) * -5px), calc(var(--ptr-y) * -4px), 0);
+  background:
+    radial-gradient(ellipse 100% 60% at 70% 35%, rgba(61, 139, 253, 0.07) 0%, transparent 55%),
+    linear-gradient(to top, rgba(0, 0, 0, 0.35) 0%, transparent 38%);
+}
+
+.auth-shell {
   position: relative;
-  z-index: 10;
-}
-
-.brand-subtitle {
-  color: rgba(224, 242, 254, 0.8);
-  margin-top: 0.25rem;
-  position: relative;
-  z-index: 10;
-}
-
-/* 表单容器 */
-.form-container {
-  padding: 1.5rem;
+  z-index: 1;
+  min-height: 100vh;
   display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 1.5rem clamp(1.25rem, 4vw, 2.5rem);
+  padding-right: clamp(1.5rem, 10vw, 6rem);
+  max-width: 120rem;
+  margin: 0 auto;
+  perspective: 1100px;
 }
 
-/* 表单样式 */
-.register-form {
+/* 注册字段多：顶部对齐，避免小屏垂直居中导致裁切 */
+.register-shell {
+  align-items: flex-start;
+  padding-top: clamp(1.25rem, 4vh, 2.5rem);
+  padding-bottom: clamp(1.25rem, 4vh, 2.5rem);
+}
+
+@media (max-width: 640px) {
+  .auth-shell {
+    justify-content: center;
+    padding-right: clamp(1.25rem, 4vw, 2.5rem);
+  }
+}
+
+.register-card {
+  width: 100%;
+  max-width: 26rem;
+  background: var(--auth-surface);
+  border: 1px solid var(--auth-border);
+  border-radius: 8px;
+  overflow: hidden;
+  transform: translate3d(calc(var(--ptr-x) * 10px), calc(var(--ptr-y) * 6px), 0)
+    rotateX(calc(var(--ptr-y) * -2.5deg)) rotateY(calc(var(--ptr-x) * 2.5deg));
+  transform-style: preserve-3d;
+  transition: transform 0.22s ease-out;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .register-page::after {
+    opacity: 0;
+  }
+
+  .auth-backdrop,
+  .auth-backdrop::before,
+  .auth-backdrop::after,
+  .register-card {
+    transform: none !important;
+  }
+}
+
+.auth-header {
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--auth-border);
+}
+
+.auth-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--auth-text);
+  letter-spacing: 0.02em;
+}
+
+.auth-subtitle {
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--auth-muted);
+  line-height: 1.45;
+}
+
+.form-container {
+  padding: 1.25rem 1.5rem 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .form-label {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgba(209, 213, 219, 0.8);
+  font-size: 0.8125rem;
+  color: var(--auth-muted);
 }
 
 .input-wrapper {
@@ -449,117 +483,113 @@ const handleRegister = async () => {
 
 .form-input {
   width: 100%;
-  padding: 0.875rem 2.5rem 0.875rem 2.5rem;
-  border-radius: 0.5rem;
-  background: rgba(31, 41, 55, 0.5);
-  border: 1px solid rgba(55, 65, 81, 1);
-  color: rgba(229, 231, 235, 1);
-  transition: all 0.2s ease;
+  padding: 0.65rem 2.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--auth-border);
+  background: #0d1117;
+  color: var(--auth-text);
+  font-size: 0.9375rem;
+  outline: none;
+  transition: border-color 0.15s ease;
 }
 
-.form-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+.form-input:focus:not(.input-error) {
+  border-color: var(--auth-accent);
+}
+
+.form-input::placeholder {
+  color: #6e7681;
 }
 
 .input-error {
-  border-color: #ef4444 !important;
-}
-
-.input-error:focus {
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+  border-color: #f85149 !important;
 }
 
 .input-icon {
   position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  padding-left: 0.875rem;
-  color: rgba(156, 163, 175, 1);
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6e7681;
+  font-size: 0.95rem;
+  pointer-events: none;
 }
 
 .toggle-password {
   position: absolute;
-  right: 0;
-  top: 0;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  padding-right: 0.875rem;
-  color: rgba(156, 163, 175, 1);
-  background: transparent;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
   border: none;
+  color: #6e7681;
   cursor: pointer;
-  transition: color 0.2s ease;
+  padding: 0.25rem;
+  font-size: 0.95rem;
 }
 
 .toggle-password:hover {
-  color: rgba(229, 231, 235, 1);
+  color: var(--auth-muted);
 }
 
 .error-message {
-  color: #ef4444;
+  color: #f85149;
   font-size: 0.75rem;
-  margin-top: 0.25rem;
+  margin: 0;
 }
 
-/* 密码强度指示器 */
 .password-strength {
-  margin-top: 0.5rem;
+  margin-top: 0.35rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
 .strength-bar {
-  height: 0.375rem;
+  height: 4px;
   width: 100%;
-  background-color: #374151;
-  border-radius: 9999px;
+  background: #21262d;
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .strength-indicator {
   height: 100%;
-  transition: all 0.3s ease;
+  transition: width 0.2s ease;
 }
 
 .strength-weak {
-  background-color: #ef4444;
+  background: #f85149;
 }
 
 .strength-medium {
-  background-color: #f97316;
+  background: #d29922;
 }
 
 .strength-good {
-  background-color: #eab308;
+  background: #e3b341;
 }
 
 .strength-strong {
-  background-color: #10b981;
+  background: #238636;
 }
 
 .strength-text {
-  font-size: 0.75rem;
-  color: #9ca3af;
+  font-size: 0.6875rem;
+  color: #6e7681;
 }
 
-/* 同意条款 */
 .terms-agreement {
   display: flex;
   align-items: flex-start;
+  gap: 0.5rem;
 }
 
 .terms-checkbox {
   position: relative;
-  margin-top: 0.125rem;
-  width: 1.25rem;
-  height: 1.25rem;
+  margin-top: 0.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
   flex-shrink: 0;
 }
 
@@ -573,168 +603,113 @@ const handleRegister = async () => {
 }
 
 .terms-checkbox-custom {
-  width: 1.25rem;
-  height: 1.25rem;
-  border: 2px solid rgba(156, 163, 175, 0.6);
-  border-radius: 0.375rem;
-  background: rgba(31, 41, 55, 0.5);
-  transition: all 0.2s ease;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 1px solid var(--auth-border);
+  border-radius: 4px;
+  background: #0d1117;
   position: relative;
+  transition: border-color 0.15s ease;
 }
 
 .terms-checkbox-input:checked + .terms-checkbox-custom {
-  border-color: #3b82f6;
-  background: #3b82f6;
+  border-color: var(--auth-accent);
+  background: var(--auth-accent);
 }
 
 .terms-checkbox-input:checked + .terms-checkbox-custom::after {
   content: '';
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: 0.5rem;
-  height: 0.25rem;
-  border: 2px solid white;
+  top: 45%;
+  width: 0.35rem;
+  height: 0.2rem;
+  border: 2px solid #fff;
   border-top: none;
   border-right: none;
-  transform: translate(-50%, -60%) rotate(-45deg);
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
-.terms-checkbox-input:focus + .terms-checkbox-custom {
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+.terms-checkbox-input:focus-visible + .terms-checkbox-custom {
+  outline: 2px solid var(--auth-accent);
+  outline-offset: 2px;
 }
 
 .terms-checkbox-input.input-error + .terms-checkbox-custom {
-  border-color: #ef4444;
+  border-color: #f85149;
 }
 
 .terms-text {
-  margin-left: 0.5rem;
   flex: 1;
+  min-width: 0;
 }
 
 .terms-label {
-  font-size: 0.875rem;
-  color: rgba(209, 213, 219, 0.8);
+  font-size: 0.8125rem;
+  color: var(--auth-muted);
+  line-height: 1.45;
 }
 
 .terms-link {
-  color: #93c5fd;
-  transition: color 0.2s ease;
+  color: var(--auth-accent);
+  text-decoration: none;
 }
 
 .terms-link:hover {
-  color: #bfdbfe;
+  text-decoration: underline;
 }
 
-/* 注册按钮 */
 .register-button {
   width: 100%;
-  padding: 0.875rem;
-  background: linear-gradient(to right, #2563eb, #4f46e5);
-  color: white;
-  font-weight: 500;
-  border-radius: 0.5rem;
+  padding: 0.65rem 1rem;
   border: none;
-  transition: all 0.3s ease;
-  transform: translateZ(0);
+  border-radius: 6px;
+  background: var(--auth-accent);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
 }
 
-.register-button:hover {
-  background: linear-gradient(to right, #1d4ed8, #4338ca);
-  transform: scale(1.02);
+.register-button:hover:not(:disabled) {
+  background: var(--auth-accent-hover);
 }
 
-.register-button:active {
-  transform: scale(0.98);
-}
-
-.register-button:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5), 0 0 0 4px rgba(59, 130, 246, 0.2);
+.register-button:focus-visible {
+  outline: 2px solid var(--auth-accent);
+  outline-offset: 2px;
 }
 
 .register-button:disabled {
-  opacity: 0.7;
+  opacity: 0.65;
   cursor: not-allowed;
-  transform: none;
 }
 
 .loading-indicator {
   display: flex;
   align-items: center;
+  gap: 0.4rem;
 }
 
-/* 登录提示 */
 .login-prompt {
   text-align: center;
-  font-size: 0.875rem;
-  color: #9ca3af;
+  font-size: 0.8125rem;
+  color: var(--auth-muted);
   margin: 0;
 }
 
 .login-link {
-  color: #93c5fd;
-  font-weight: 500;
   margin-left: 0.25rem;
-  transition: color 0.2s ease;
+  color: var(--auth-accent);
+  font-weight: 500;
+  text-decoration: none;
 }
 
 .login-link:hover {
-  color: #bfdbfe;
-}
-
-/* 背景装饰 */
-.background-decorations {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.blob {
-  position: absolute;
-  border-radius: 50%;
-  mix-blend-mode: multiply;
-  filter: blur(7rem);
-  opacity: 0.2;
-}
-
-.blob-1 {
-  top: -10rem;
-  right: -10rem;
-  width: 24rem;
-  height: 24rem;
-  background-color: #2563eb;
-  animation: blob 7s infinite;
-}
-
-.blob-2 {
-  top: 10rem;
-  left: -5rem;
-  width: 18rem;
-  height: 18rem;
-  background-color: #8b5cf6;
-  animation: blob 7s infinite 2s;
-}
-
-.blob-3 {
-  bottom: 10rem;
-  right: 5rem;
-  width: 20rem;
-  height: 20rem;
-  background-color: #ec4899;
-  animation: blob 7s infinite 4s;
-}
-
-@keyframes blob {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(7.5rem, -12.5rem) scale(1.1); }
-  66% { transform: translate(-5rem, 5rem) scale(0.9); }
-  100% { transform: translate(0, 0) scale(1); }
+  text-decoration: underline;
 }
 </style>

@@ -30,7 +30,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'Login',
     component: Login,
     meta: {
-      title: '登录 - 三角洲行动俱乐部',
+      title: '登录 - 栗帽游戏服务平台',
       requiresAuth: false // 不需要登录即可访问
     }
   },
@@ -39,7 +39,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'Register',
     component: Register,
     meta: {
-      title: '注册 - 三角洲行动俱乐部',
+      title: '注册 - 栗帽游戏服务平台',
       requiresAuth: false // 不需要登录即可访问
     }
   },
@@ -48,7 +48,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'Dashboard',
     component: Dashboard,
     meta: {
-      title: '首页 - 三角洲行动俱乐部',
+      title: '首页 - 栗帽游戏服务平台',
       requiresAuth: true // 需要登录才能访问
     }
   },
@@ -57,7 +57,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'EscortDelta',
     component: EscortDelta,
     meta: {
-      title: ' escort delta - 三角洲行动俱乐部',
+      title: ' escort delta - 栗帽游戏服务平台',
       requiresAuth: true,
       customerOnly: true
     }
@@ -67,7 +67,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'PlayHall',
     component: PlayHall,
     meta: {
-      title: '打手大厅 - 三角洲行动俱乐部',
+      title: '打手大厅 - 栗帽游戏服务平台',
       requiresAuth: true,
       customerOnly: true
     }
@@ -77,7 +77,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'JoinUs',
     component: JoinUs,
     meta: {
-      title: '加入我们 - 三角洲行动俱乐部',
+      title: '加入我们 - 栗帽游戏服务平台',
       requiresAuth: true,
       customerOnly: true
     }
@@ -87,7 +87,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'PlayerDesk',
     component: PlayerDesk,
     meta: {
-      title: '打手工作台 - 三角洲行动俱乐部',
+      title: '打手工作台 - 栗帽游戏服务平台',
       requiresAuth: true,
       playerOnly: true
     }
@@ -97,7 +97,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'BossDesk',
     component: BossDesk,
     meta: {
-      title: 'BOSS 控制台 - 三角洲行动俱乐部',
+      title: 'BOSS 控制台 - 栗帽游戏服务平台',
       requiresAuth: true,
       minUserLevel: 2
     }
@@ -107,7 +107,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'Profile',
     component: Profile,
     meta: {
-      title: '个人中心 - 三角洲行动俱乐部',
+      title: '个人中心 - 栗帽游戏服务平台',
       requiresAuth: true // 需要登录才能访问
     }
   },
@@ -116,7 +116,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'AccountSettings',
     component: AccountSettings,
     meta: {
-      title: '账号设置 - 三角洲行动俱乐部',
+      title: '账号设置 - 栗帽游戏服务平台',
       requiresAuth: true // 需要登录才能访问
     }
   },
@@ -125,7 +125,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'Orders',
     component: Orders,
     meta: {
-      title: '订单 - 三角洲行动俱乐部',
+      title: '订单 - 栗帽游戏服务平台',
       requiresAuth: true // 需要登录才能访问
     }
   },
@@ -134,7 +134,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'OrderDetail',
     component: OrderDetail,
     meta: {
-      title: '订单详情 - 三角洲行动俱乐部',
+      title: '订单详情 - 栗帽游戏服务平台',
       requiresAuth: true
     }
   },
@@ -143,7 +143,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'SupportCenter',
     component: SupportCenter,
     meta: {
-      title: '客服中心 - 三角洲行动俱乐部',
+      title: '客服中心 - 栗帽游戏服务平台',
       requiresAuth: true // 需要登录才能访问
     }
   },
@@ -152,7 +152,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'Notifications',
     component: Notifications,
     meta: {
-      title: '通知 - 三角洲行动俱乐部',
+      title: '通知 - 栗帽游戏服务平台',
       requiresAuth: true // 需要登录才能访问
     }
   },
@@ -161,7 +161,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'HelpCenter',
     component: HelpCenter,
     meta: {
-      title: '帮助中心 - 三角洲行动俱乐部',
+      title: '帮助中心 - 栗帽游戏服务平台',
       requiresAuth: true // 需要登录才能访问
     }
   },
@@ -170,7 +170,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'GameMap',
     component: GameMap,
     meta: {
-      title: '游戏地图 - 三角洲行动俱乐部',
+      title: '游戏地图 - 栗帽游戏服务平台',
       requiresAuth: true // 需要登录才能访问
     }
   },
@@ -179,7 +179,7 @@ const routes: Array<RouteRecordRaw> = [
     name: 'NotFound',
     component: NotFound,
     meta: {
-      title: '页面不存在 - 三角洲行动俱乐部'
+      title: '页面不存在 - 栗帽游戏服务平台'
     }
   }
 ]

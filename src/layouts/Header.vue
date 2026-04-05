@@ -5,7 +5,7 @@
         <!-- 品牌标识 -->
         <div class="brand-logo">
           <i class="fa fa-shield"></i>
-          <span class="logo-text">三角洲行动俱乐部</span>
+          <span class="logo-text">栗帽游戏服务平台</span>
         </div>
         
         <!-- 主导航 - 桌面端 -->
