@@ -406,9 +406,11 @@ import ServicePackageCard from '@/components/Escort/ServicePackageCard.vue';
 import PlayerProfileCard from '@/components/Players/PlayerProfileCard.vue';
 import TestimonialCard from '@/components/Common/TestimonialCard.vue';
 import FaqAccordionItem from '@/components/Common/FaqAccordionItem.vue';
+import { useUserStore } from '../stores/user';
 
 // 路由实例
 const router = useRouter();
+const userStore = useUserStore();
 
 // DOM引用
 const servicesSection = ref<HTMLElement | null>(null);
@@ -593,6 +595,10 @@ watch(bookModalOpen, async (open) => {
 
 /** 带加载态跳转订单创建页（与打手大厅 query 约定一致） */
 async function goOrdersWithPlayer(playerId: string, serviceKey: string) {
+  if (userStore.profile?.status === 'RESTRICTED') {
+    alert('您的账号目前处于受限状态，无法预约打手。请在个人中心查看违规记录。');
+    return;
+  }
   const p = topPlayers.value.find((x) => x.id === playerId);
   const nid = normalizePlayerProfileId(playerId) || playerId;
   bookingTargetId.value = playerId;
@@ -665,6 +671,10 @@ const scrollToPlayers = () => {
 
 // 提交订单
 const submitOrder = () => {
+  if (userStore.profile?.status === 'RESTRICTED') {
+    alert('您的账号目前处于受限状态，无法下单。请在个人中心查看违规记录。');
+    return;
+  }
   const rawPid = formData.value.playerId?.trim() || '';
   const nid = rawPid ? normalizePlayerProfileId(rawPid) || rawPid : '';
   const picked = nid ? topPlayers.value.find((x) => x.id === rawPid || x.id === nid) : undefined;

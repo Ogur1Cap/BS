@@ -133,6 +133,45 @@
               </div>
             </div>
 
+            <!-- 风控与账号状态 -->
+            <div class="form-section violation-section" v-if="userStore.profile?.status">
+              <h3 class="section-title"><i class="fa fa-shield"></i> 账号安全与风控</h3>
+              <div class="status-banner" :class="'status-' + userStore.profile?.status.toLowerCase()">
+                <div class="status-icon">
+                  <i class="fa" :class="{
+                    'fa-check-circle': userStore.profile?.status === 'ACTIVE',
+                    'fa-exclamation-triangle': userStore.profile?.status === 'RESTRICTED',
+                    'fa-ban': userStore.profile?.status === 'BANNED'
+                  }"></i>
+                </div>
+                <div class="status-content">
+                  <h4>当前账号状态：{{ 
+                    userStore.profile?.status === 'ACTIVE' ? '正常' : 
+                    (userStore.profile?.status === 'RESTRICTED' ? '功能受限' : '已封禁') 
+                  }}</h4>
+                  <p v-if="userStore.profile?.status === 'RESTRICTED'">您的账号目前无法下单、接单或申请结算。请查看下方违规记录或联系客服申诉。</p>
+                  <p v-else-if="userStore.profile?.status === 'BANNED'">您的账号已被永久封禁，无法使用平台任何功能。</p>
+                  <p v-else>账号状态良好，感谢您遵守平台规范。</p>
+                </div>
+              </div>
+              
+              <div class="violation-stats">
+                <div class="v-stat">
+                  <span>累计违规次数</span>
+                  <strong :class="{'text-red': (userStore.profile?.violationCount || 0) > 0}">{{ userStore.profile?.violationCount || 0 }} 次</strong>
+                </div>
+                <div class="v-stat">
+                  <span>风险评级</span>
+                  <strong :class="{'text-red': userStore.profile?.isHighRisk, 'text-green': !userStore.profile?.isHighRisk}">
+                    {{ userStore.profile?.isHighRisk ? '高风险' : '低风险' }}
+                  </strong>
+                </div>
+                <button type="button" class="view-violation-btn" @click="showViolations = true">
+                  查看违规记录与申诉
+                </button>
+              </div>
+            </div>
+
             <!-- 安全设置 -->
             <div class="security-section">
               <h3 class="section-title">安全设置</h3>
@@ -213,6 +252,65 @@
       </div>
     </main>
 
+    <!-- 违规记录弹窗 -->
+    <div v-if="showViolations" class="modal-backdrop" @click.self="showViolations = false">
+      <div class="modal-dialog violation-modal">
+        <div class="modal-header">
+          <h3>我的违规记录</h3>
+          <button class="close-btn" @click="showViolations = false"><i class="fa fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div v-if="loadingViolations" class="text-center p-4">加载中...</div>
+          <div v-else-if="myViolations.length === 0" class="text-center p-4 text-gray">暂无违规记录，请继续保持良好的行为习惯。</div>
+          <ul v-else class="violation-list">
+            <li v-for="v in myViolations" :key="v.id" class="violation-item">
+              <div class="v-header">
+                <span class="v-type">{{ getViolationTypeText(v.type) }}</span>
+                <span class="v-date">{{ new Date(v.createdAt).toLocaleString() }}</span>
+                <span class="v-status" :class="'v-status-' + v.status.toLowerCase()">{{ getViolationStatusText(v.status) }}</span>
+              </div>
+              <p class="v-desc">{{ v.description }}</p>
+              
+              <div v-if="v.status === 'PENDING'" class="v-actions">
+                <button class="btn btn-primary btn-sm" @click="openAppeal(v)">提起申诉</button>
+              </div>
+              
+              <div v-if="v.appealReason" class="v-appeal-box">
+                <strong>您的申诉：</strong>
+                <p>{{ v.appealReason }}</p>
+              </div>
+              
+              <div v-if="v.adminAction" class="v-result-box">
+                <strong>处理结果：{{ getAdminActionText(v.adminAction) }}</strong>
+                <p v-if="v.adminNotes">{{ v.adminNotes }}</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 申诉弹窗 -->
+    <div v-if="appealFor" class="modal-backdrop" @click.self="appealFor = null">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>违规申诉</h3>
+          <button class="close-btn" @click="appealFor = null"><i class="fa fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-4 text-sm text-gray">针对违规事项：{{ getViolationTypeText(appealFor.type) }}<br>{{ appealFor.description }}</p>
+          <div class="form-group">
+            <label class="form-label">申诉理由</label>
+            <textarea v-model="appealReason" class="form-textarea" rows="4" placeholder="请详细描述您的申诉理由，如果有相关证据（如订单截图、聊天记录）请联系客服提交，并在此处说明..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" @click="appealFor = null">取消</button>
+          <button class="btn btn-primary" @click="submitAppeal">提交申诉</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 成功提示 -->
     <div v-if="showSuccessToast" class="success-toast" role="alert">
       <i class="fa fa-check-circle"></i>
@@ -228,6 +326,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '../stores/user'
 import { resolvePublicFileUrl } from '../api/publicUrl'
+import { violationApi, type ViolationRecord } from '../api/violationApi'
 
 // 导入组件
 import Header from '../layouts/Header.vue'
@@ -243,6 +342,12 @@ const successMessage = ref('')
 
 const userLevel = ref('白银会员')
 const memberSince = ref('2023年5月')
+
+const showViolations = ref(false)
+const loadingViolations = ref(false)
+const myViolations = ref<ViolationRecord[]>([])
+const appealFor = ref<ViolationRecord | null>(null)
+const appealReason = ref('')
 
 // 表单数据
 const form = reactive({
@@ -439,9 +544,72 @@ const maskPhone = (phone: string) => {
   return phone.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1****$3');
 };
 
+function getViolationStatusText(status: string) {
+  switch (status) {
+    case 'PENDING': return '待处理/可申诉'
+    case 'APPEALED': return '申诉审核中'
+    case 'RESOLVED': return '已处理'
+    default: return status
+  }
+}
+
+function getViolationTypeText(type: string) {
+  switch (type) {
+    case 'FAKE_ORDER': return '虚假下单'
+    case 'MALICIOUS_REFUND': return '恶意退款'
+    case 'ILLEGAL_ACCEPT': return '违规接单'
+    case 'IMPROPER_SERVICE': return '不规范服务'
+    default: return type
+  }
+}
+
+function getAdminActionText(action: string) {
+  switch (action) {
+    case 'WARNING': return '警告'
+    case 'RESTRICT': return '限制功能'
+    case 'BAN': return '封禁账号'
+    case 'DISMISS': return '撤销违规'
+    default: return action
+  }
+}
+
+async function loadMyViolations() {
+  loadingViolations.value = true
+  try {
+    myViolations.value = await violationApi.getMyViolations()
+  } catch (e) {
+    console.error('获取违规记录失败', e)
+  } finally {
+    loadingViolations.value = false
+  }
+}
+
+function openAppeal(v: ViolationRecord) {
+  appealFor.value = v
+  appealReason.value = ''
+}
+
+async function submitAppeal() {
+  if (!appealFor.value || !appealReason.value.trim()) {
+    alert('请填写申诉理由')
+    return
+  }
+  try {
+    await violationApi.submitAppeal(appealFor.value.id, appealReason.value.trim())
+    showSuccessToast.value = true
+    successMessage.value = '申诉提交成功，请等待处理'
+    appealFor.value = null
+    await loadMyViolations()
+    setTimeout(() => { showSuccessToast.value = false }, 3000)
+  } catch (e: any) {
+    alert(e.message || '申诉提交失败')
+  }
+}
+
 // 页面加载时初始化
 onMounted(() => {
   initUserProfile();
+  loadMyViolations();
 });
 </script>
 
@@ -876,6 +1044,231 @@ onMounted(() => {
   color: #9ca3af;
   font-size: 0.875rem;
 }
+
+.violation-section {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  background-color: rgba(239, 68, 68, 0.05) !important;
+}
+
+.status-banner {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.status-active {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-active i { color: #10b981; }
+
+.status-restricted {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.status-restricted i { color: #f59e0b; }
+
+.status-banned {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.status-banned i { color: #ef4444; }
+
+.status-icon {
+  font-size: 2rem;
+  padding-top: 0.25rem;
+}
+
+.status-content h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.status-content p {
+  margin: 0;
+  color: #d1d5db;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.violation-stats {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  background: rgba(17, 24, 37, 0.6);
+  padding: 1rem 1.5rem;
+  border-radius: 0.5rem;
+}
+
+.v-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.v-stat span {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.v-stat strong {
+  font-size: 1.25rem;
+}
+
+.text-red { color: #ef4444; }
+.text-green { color: #10b981; }
+
+.view-violation-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid #3b82f6;
+  color: #3b82f6;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-violation-btn:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.modal-dialog {
+  background: #1e293b;
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 0.75rem;
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.violation-modal {
+  max-width: 600px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.5);
+}
+
+.modal-header h3 { margin: 0; }
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 1.25rem;
+}
+
+.close-btn:hover { color: #f3f4f6; }
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid rgba(71, 85, 105, 0.5);
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn-primary { background: #3b82f6; color: white; }
+.btn-primary:hover { background: #2563eb; }
+.btn-ghost { background: transparent; border-color: #475569; color: #e2e8f0; }
+.btn-ghost:hover { background: rgba(71, 85, 105, 0.3); }
+
+.violation-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.violation-item {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.v-header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.v-type { font-weight: 600; color: #fca5a5; }
+.v-date { font-size: 0.8rem; color: #9ca3af; }
+.v-status { margin-left: auto; font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 0.25rem; }
+
+.v-status-pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.v-status-appealed { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.v-status-resolved { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+
+.v-desc { margin: 0 0 1rem; font-size: 0.9rem; line-height: 1.5; color: #e2e8f0; }
+
+.v-appeal-box {
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  border-left: 3px solid #3b82f6;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.v-appeal-box p { margin: 0.25rem 0 0; color: #bfdbfe; }
+
+.v-result-box {
+  background: rgba(16, 185, 129, 0.1);
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  border-left: 3px solid #10b981;
+  font-size: 0.85rem;
+}
+
+.v-result-box p { margin: 0.25rem 0 0; color: #a7f3d0; }
+
+.text-center { text-align: center; }
+.p-4 { padding: 1rem; }
+.text-gray { color: #9ca3af; }
+.text-sm { font-size: 0.875rem; }
+.mb-4 { margin-bottom: 1rem; }
 
 /* 成功提示 */
 .success-toast {

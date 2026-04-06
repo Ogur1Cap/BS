@@ -37,9 +37,15 @@
             <i class="fa fa-rocket"></i> 快捷服务
           </h2>
           <div class="services-grid">
+            <!-- 账号受限提示 -->
+            <div v-if="userStore.profile?.status === 'RESTRICTED'" class="restricted-notice">
+              <i class="fa fa-exclamation-triangle"></i>
+              您的账号目前处于受限状态，无法使用下单、接单等核心功能。请在个人中心查看违规记录并处理。
+            </div>
+
             <!-- 服务卡片 -->
             <ServiceCard 
-              v-if="isCustomerAccount()"
+              v-if="isCustomerAccount() && userStore.profile?.status !== 'RESTRICTED'"
               title="护航服务"
               description="专业玩家为您护航，轻松通关"
               icon="fa fa-shield"
@@ -314,6 +320,25 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
+}
+
+.restricted-notice {
+  grid-column: 1 / -1;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.restricted-notice i {
+  font-size: 1.25rem;
+  color: #ef4444;
 }
 
 /* 游戏区域 */

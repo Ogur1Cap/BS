@@ -9,5 +9,9 @@ export interface Profile {
   userLevel?: number
   /** 打手绑定的 players.id 字符串，顾客一般为 null */
   playerProfileId?: string | null
+  /** 账号状态 ACTIVE, RESTRICTED, BANNED */
+  status?: string
+  violationCount?: number
+  isHighRisk?: boolean
 }
 

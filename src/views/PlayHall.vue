@@ -87,6 +87,12 @@
           找到 <span class="highlight">{{ matchedPlayers.length }}</span> 位符合条件的专业打手
         </div>
 
+        <!-- 账号受限提示 -->
+        <div v-if="userStore.profile?.status === 'RESTRICTED'" class="restricted-notice mb-4">
+          <i class="fa fa-exclamation-triangle"></i>
+          您的账号目前处于受限状态，无法预约打手。请在个人中心查看违规记录并处理。
+        </div>
+
         <!-- 打手卡片网格 -->
         <div class="players-grid">
           <!-- 打手卡片（复用组件） -->
@@ -227,9 +233,12 @@ import Footer from '../layouts/Footer.vue';
 // 引入打手卡片组件（下方会提供）
 import PlayerProfileCard from '@/components/Players/PlayerProfileCard.vue';
 import { playerHallApi } from '../api/playerHallApi';
+import { useUserStore } from '../stores/user';
 
 // 路由实例
+// 路由实例
 const router = useRouter();
+const userStore = useUserStore();
 
 // —— 类型定义 ——
 interface Player {
@@ -520,6 +529,10 @@ const resetFilters = () => {
 
 // 预约打手（跳转至下单页，携带打手 ID + 昵称，便于订单与通知展示）
 const handleBookPlayer = (playerId: string) => {
+  if (userStore.profile?.status === 'RESTRICTED') {
+    alert('您的账号目前处于受限状态，无法预约打手。');
+    return;
+  }
   const p = allPlayers.value.find((x) => x.id === playerId);
   router.push({
     path: '/orders',
@@ -707,6 +720,25 @@ onMounted(async () => {
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
+
+.restricted-notice {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 500;
+}
+
+.restricted-notice i {
+  font-size: 1.25rem;
+  color: #ef4444;
+}
+
+.mb-4 { margin-bottom: 1.5rem; }
 
 /* 空状态 */
 .empty-state {

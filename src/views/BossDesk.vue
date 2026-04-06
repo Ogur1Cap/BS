@@ -108,6 +108,54 @@
           </ul>
         </section>
 
+        <section class="bd-section" id="violation-management">
+          <div class="bd-section-head">
+            <h2><i class="fa fa-gavel"></i> 违规预警管理</h2>
+            <button type="button" class="bd-refresh" :disabled="loading" @click="loadAll">
+              <i class="fa" :class="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
+            </button>
+          </div>
+          <p class="bd-sub">处理系统自动监测到的违规行为和用户的申诉，维护平台秩序。</p>
+          <div class="bd-tabs">
+            <button class="bd-tab" :class="{ active: violationTab === 'pending' }" @click="violationTab = 'pending'">待处理预警 ({{ pendingViolations.length }})</button>
+            <button class="bd-tab" :class="{ active: violationTab === 'appealed' }" @click="violationTab = 'appealed'">用户申诉 ({{ appealedViolations.length }})</button>
+            <button class="bd-tab" :class="{ active: violationTab === 'all' }" @click="loadAllViolations(); violationTab = 'all'">全部记录</button>
+          </div>
+          
+          <div v-if="currentViolations.length === 0" class="bd-empty subtle">暂无相关违规记录。</div>
+          <ul v-else class="bd-order-list">
+            <li v-for="row in currentViolations" :key="'v-' + row.id" class="bd-card">
+              <div class="bd-card-main">
+                <div class="bd-card-title">
+                  <span class="bd-tag" :class="'v-' + row.status.toLowerCase()">{{ getViolationStatusText(row.status) }}</span>
+                  <span class="bd-status-pill v-type">{{ getViolationTypeText(row.type) }}</span>
+                  <span v-if="row.isHighRisk" class="bd-badge-danger"><i class="fa fa-exclamation-triangle"></i> 高风险</span>
+                </div>
+                <div class="bd-meta">
+                  <span><i class="fa fa-user"></i> {{ row.username }} (ID: {{ row.userId }})</span>
+                  <span><i class="fa fa-history"></i> 违规: {{ row.violationCount }}次</span>
+                  <span><i class="fa fa-clock-o"></i> {{ new Date(row.createdAt).toLocaleString() }}</span>
+                  <span v-if="row.relatedId"><i class="fa fa-link"></i> 关联ID: #{{ row.relatedId }}</span>
+                </div>
+                <p class="bd-note" style="color: #f87171;">
+                  <strong>违规详情：</strong>{{ row.description }}
+                </p>
+                <div v-if="row.appealReason" class="bd-note appeal-box">
+                  <strong><i class="fa fa-commenting-o"></i> 用户申诉理由：</strong>
+                  <p>{{ row.appealReason }}</p>
+                </div>
+                <div v-if="row.adminAction" class="bd-note resolved-box">
+                  <strong>处理结果：</strong>{{ getAdminActionText(row.adminAction) }}
+                  <span v-if="row.adminNotes">({{ row.adminNotes }})</span>
+                </div>
+              </div>
+              <div class="bd-card-actions" v-if="row.status !== 'RESOLVED'">
+                <button type="button" class="bd-btn bd-btn-primary" @click="openHandleViolation(row)">处理</button>
+              </div>
+            </li>
+          </ul>
+        </section>
+
         <section class="bd-section">
           <div class="bd-section-head">
             <h2><i class="fa fa-user-plus"></i> 打手入驻审核</h2>
@@ -202,6 +250,29 @@
       </div>
     </div>
 
+    <div v-if="violationHandleFor" class="bd-modal-backdrop" @click.self="violationHandleFor = null">
+      <div class="bd-modal bd-modal-wide">
+        <h3>处理违规记录 #{{ violationHandleFor.id }}</h3>
+        <div class="bd-meta mb-2">用户: {{ violationHandleFor.username }} | 当前违规次数: {{ violationHandleFor.violationCount }}</div>
+        
+        <label class="bd-label">处理动作</label>
+        <select v-model="violationAction" class="bd-select">
+          <option value="WARNING">发出警告 (仅通知)</option>
+          <option value="RESTRICT">限制账号功能 (禁止接单/下单)</option>
+          <option value="BAN">封禁账号 (禁止登录)</option>
+          <option value="DISMISS">撤销违规 (申诉通过/误判)</option>
+        </select>
+        
+        <label class="bd-label">处理意见 (必填，将通知用户)</label>
+        <textarea v-model="violationNotes" rows="3" placeholder="填写具体的处理依据和意见..." class="bd-textarea"></textarea>
+        
+        <div class="bd-modal-actions">
+          <button type="button" class="bd-btn bd-btn-ghost" @click="violationHandleFor = null">取消</button>
+          <button type="button" class="bd-btn bd-btn-primary" @click="confirmHandleViolation">确认处理</button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="reassignFor" class="bd-modal-backdrop" @click.self="reassignFor = null">
       <div class="bd-modal bd-modal-wide">
         <h3>转派订单 #{{ reassignFor.id }}</h3>
@@ -233,6 +304,8 @@ import {
   type BossPlayerAccountRow,
   type BossPlayerOption
 } from '../api/bossDeskApi'
+import { violationApi, type ViolationRecord } from '../api/violationApi'
+import { computed } from 'vue'
 
 const stats = ref<BossDeskStats | null>(null)
 const completionPending = ref<BossDeskOrder[]>([])
@@ -249,6 +322,100 @@ const joinRejectReason = ref('')
 const reassignFor = ref<BossDeskOrder | null>(null)
 const reassignPlayerId = ref('')
 const reassignRemark = ref('')
+
+const violationTab = ref<'pending' | 'appealed' | 'all'>('pending')
+const pendingViolations = ref<ViolationRecord[]>([])
+const appealedViolations = ref<ViolationRecord[]>([])
+const allViolations = ref<ViolationRecord[]>([])
+const violationHandleFor = ref<ViolationRecord | null>(null)
+const violationAction = ref('WARNING')
+const violationNotes = ref('')
+
+const currentViolations = computed(() => {
+  if (violationTab.value === 'pending') return pendingViolations.value
+  if (violationTab.value === 'appealed') return appealedViolations.value
+  return allViolations.value
+})
+
+function getViolationStatusText(status: string) {
+  switch (status) {
+    case 'PENDING': return '待处理'
+    case 'APPEALED': return '申诉中'
+    case 'RESOLVED': return '已处理'
+    default: return status
+  }
+}
+
+function getViolationTypeText(type: string) {
+  switch (type) {
+    case 'FAKE_ORDER': return '虚假下单'
+    case 'MALICIOUS_REFUND': return '恶意退款'
+    case 'ILLEGAL_ACCEPT': return '违规接单'
+    case 'IMPROPER_SERVICE': return '不规范服务'
+    default: return type
+  }
+}
+
+function getAdminActionText(action: string) {
+  switch (action) {
+    case 'WARNING': return '警告'
+    case 'RESTRICT': return '限制功能'
+    case 'BAN': return '封禁账号'
+    case 'DISMISS': return '撤销违规'
+    default: return action
+  }
+}
+
+async function loadViolations() {
+  try {
+    const [pending, appealed] = await Promise.all([
+      violationApi.getPendingViolations(),
+      violationApi.getAppealedViolations()
+    ])
+    pendingViolations.value = pending
+    appealedViolations.value = appealed
+    if (violationTab.value === 'all') {
+      await loadAllViolations()
+    }
+  } catch (e) {
+    console.error('加载违规记录失败', e)
+  }
+}
+
+async function loadAllViolations() {
+  try {
+    allViolations.value = await violationApi.getAllViolations()
+  } catch (e) {
+    console.error('加载全部违规记录失败', e)
+  }
+}
+
+function openHandleViolation(row: ViolationRecord) {
+  violationHandleFor.value = row
+  violationAction.value = row.status === 'APPEALED' ? 'DISMISS' : 'WARNING'
+  violationNotes.value = ''
+}
+
+async function confirmHandleViolation() {
+  if (!violationHandleFor.value) return
+  if (!violationNotes.value.trim()) {
+    alert('请填写处理意见')
+    return
+  }
+  try {
+    await violationApi.handleViolation(
+      violationHandleFor.value.id,
+      violationAction.value,
+      violationNotes.value.trim()
+    )
+    violationHandleFor.value = null
+    await loadViolations()
+    // 可能会影响用户信息，可选重载整体
+  } catch (e) {
+    console.error(e)
+    alert(e instanceof Error ? e.message : '处理失败')
+  }
+}
 
 function deskPlayerName(row: BossDeskOrder, emptyLabel = '—'): string {
   const p = row.player as { name?: string } | undefined
@@ -267,6 +434,7 @@ async function loadAll() {
       bossDeskApi.listJoinPending(),
       bossDeskApi.listPlayerAccounts()
     ])
+    await loadViolations()
     stats.value = st
     completionPending.value = cp
     manageable.value = mg
@@ -723,4 +891,75 @@ onMounted(() => {
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
+
+.bd-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.5);
+  padding-bottom: 0.5rem;
+}
+
+.bd-tab {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.bd-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
+.bd-tab.active {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.bd-badge-danger {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+}
+
+.v-pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.v-appealed { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+.v-resolved { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+
+.v-type {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.appeal-box {
+  background: rgba(139, 92, 246, 0.1);
+  border-left: 3px solid #8b5cf6;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0 0.25rem 0.25rem 0;
+  margin-top: 0.5rem;
+}
+
+.appeal-box p {
+  margin: 0.25rem 0 0;
+  color: #e2e8f0;
+}
+
+.resolved-box {
+  background: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10b981;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0 0.25rem 0.25rem 0;
+  margin-top: 0.5rem;
+}
+
+.mb-2 { margin-bottom: 0.5rem; }
 </style>
