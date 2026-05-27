@@ -1,9 +1,14 @@
+<!--
+  【通知中心】系统消息列表页
+  功能：通知列表、标记已读/全部已读、未读数量角标
+  通知类型：order(订单通知)、system(系统通知)、refund(退款通知)、violation(违规通知)
+  角色：所有登录用户
+-->
 <template>
   <div class="notifications-page">
     <!-- 头部导航 -->
     <Header 
-      :current-user="currentUser" 
-      :user-avatar="userAvatar"
+      :current-user="currentUser"
       @logout="handleLogout"
     />
 
@@ -84,7 +89,7 @@
           
           <!-- 空状态 -->
           <div class="empty-state" v-if="!isLoading && filteredNotifications.length === 0">
-            <i class="fa fa-bell-o"></i>
+            <i class="far fa-bell"></i>
             <p>暂无通知</p>
           </div>
           
@@ -154,6 +159,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useNotificationStore } from '../stores/notifications';
+import { useUserStore } from '../stores/user';
 import { notificationsApi } from '../api/notificationsApi';
 
 // 导入组件
@@ -163,11 +169,11 @@ import Footer from '../layouts/Footer.vue';
 // 路由实例
 const router = useRouter();
 const notificationStore = useNotificationStore();
+const userStore = useUserStore();
 const { items: notifications } = storeToRefs(notificationStore);
 
 // 状态
 const currentUser = ref<{ username: string } | undefined>(undefined);
-const userAvatar = ref('https://picsum.photos/id/237/200/200');
 const isLoading = ref(true);
 const activeFilter = ref('all');
 /** 单条删除中（防重复点击） */
@@ -347,8 +353,8 @@ onMounted(() => {
 <style scoped>
 .notifications-page {
   min-height: 100vh;
-  background-color: #111827;
-  color: #f3f4f6;
+  background-color: var(--m-bg);
+  color: var(--m-text);
 }
 
 .page-content {
@@ -362,21 +368,20 @@ onMounted(() => {
   padding: 0 1rem;
 }
 
-/* 页面头部 */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.5);
+  border-bottom: 1px solid var(--m-border);
 }
 
 .page-title {
   font-size: 2rem;
   font-weight: 700;
   margin: 0;
-  color: #f3f4f6;
+  color: var(--m-text);
 }
 
 .header-actions {
@@ -390,20 +395,21 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
   border: none;
 }
 
 .mark-all-read-btn {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
 }
 
 .mark-all-read-btn:hover:not(:disabled) {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--m-accent);
+  color: white;
 }
 
 .mark-all-read-btn:disabled {
@@ -412,12 +418,13 @@ onMounted(() => {
 }
 
 .delete-all-btn {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background-color: var(--m-danger-light);
+  color: var(--m-danger);
 }
 
 .delete-all-btn:hover:not(:disabled) {
-  background-color: rgba(239, 68, 68, 0.2);
+  background-color: var(--m-danger);
+  color: white;
 }
 
 .delete-all-btn:disabled {
@@ -425,7 +432,6 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* 通知过滤器 */
 .notification-filters {
   display: flex;
   flex-wrap: wrap;
@@ -435,12 +441,12 @@ onMounted(() => {
 
 .filter-btn {
   padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  background-color: #1f2937;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  color: #9ca3af;
+  border-radius: 999px;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  color: var(--m-text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -448,18 +454,18 @@ onMounted(() => {
 }
 
 .filter-btn:hover {
-  background-color: rgba(55, 65, 81, 0.3);
-  color: #f3f4f6;
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text);
 }
 
 .filter-btn.active {
-  background-color: rgba(59, 130, 246, 0.1);
-  border-color: #3b82f6;
-  color: #3b82f6;
+  background-color: var(--m-accent-light);
+  border-color: var(--m-accent);
+  color: var(--m-accent);
 }
 
 .unread-badge {
-  background-color: #ef4444;
+  background-color: var(--m-danger);
   color: white;
   font-size: 0.75rem;
   width: 1.25rem;
@@ -470,19 +476,17 @@ onMounted(() => {
   justify-content: center;
 }
 
-/* 通知列表 */
 .notifications-list {
-  border-radius: 1rem;
-  background-color: #1f2937;
-  border: 1px solid rgba(55, 65, 81, 0.5);
+  border-radius: var(--m-radius);
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
   overflow: hidden;
 }
 
-/* 加载状态 */
 .loading-state {
   padding: 4rem 2rem;
   text-align: center;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -494,11 +498,10 @@ onMounted(() => {
   animation: spin 1s linear infinite;
 }
 
-/* 空状态 */
 .empty-state {
   padding: 4rem 2rem;
   text-align: center;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
 }
 
 .empty-state i {
@@ -507,14 +510,13 @@ onMounted(() => {
   opacity: 0.3;
 }
 
-/* 通知项 */
 .notification-item {
   padding: 1.5rem;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  border-bottom: 1px solid var(--m-border);
   display: flex;
   align-items: flex-start;
   gap: 1rem;
-  transition: background-color 0.2s ease;
+  transition: background-color var(--m-transition);
 }
 
 .notification-item:last-child {
@@ -522,15 +524,14 @@ onMounted(() => {
 }
 
 .notification-item:hover {
-  background-color: rgba(55, 65, 81, 0.1);
+  background-color: var(--m-bg-tertiary);
 }
 
 .notification-item.unread {
-  background-color: rgba(59, 130, 246, 0.05);
-  border-left: 4px solid #3b82f6;
+  background-color: var(--m-accent-light);
+  border-left: 4px solid var(--m-accent);
 }
 
-/* 通知图标 */
 .notification-icon {
   width: 3rem;
   height: 3rem;
@@ -542,34 +543,33 @@ onMounted(() => {
 }
 
 .type-order {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  background-color: var(--m-success-light);
+  color: var(--m-success);
 }
 
 .type-message {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
 }
 
 .type-system {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  background-color: var(--m-warning-light);
+  color: var(--m-warning);
 }
 
-/* 通知内容 */
 .notification-content {
   flex: 1;
 }
 
 .notification-title {
   font-weight: 600;
-  color: #f3f4f6;
+  color: var(--m-text);
   margin: 0 0 0.5rem 0;
   font-size: 1.125rem;
 }
 
 .notification-message {
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   margin: 0 0 1rem 0;
   line-height: 1.5;
 }
@@ -581,7 +581,7 @@ onMounted(() => {
 }
 
 .notification-time {
-  color: #6b7280;
+  color: var(--m-text-muted);
   font-size: 0.875rem;
 }
 
@@ -594,31 +594,33 @@ onMounted(() => {
   background: none;
   border: none;
   padding: 0.25rem 0.75rem;
-  border-radius: 0.375rem;
+  border-radius: var(--m-radius-sm);
   font-size: 0.875rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
 }
 
 .read-btn {
-  color: #10b981;
-  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--m-success);
+  background-color: var(--m-success-light);
 }
 
 .read-btn:hover {
-  background-color: rgba(16, 185, 129, 0.2);
+  background-color: var(--m-success);
+  color: white;
 }
 
 .delete-btn {
-  color: #ef4444;
-  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--m-danger);
+  background-color: var(--m-danger-light);
 }
 
 .delete-btn:hover:not(:disabled) {
-  background-color: rgba(239, 68, 68, 0.2);
+  background-color: var(--m-danger);
+  color: white;
 }
 
 .action-btn:disabled {
@@ -626,7 +628,6 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* 底部轻提示 */
 .notif-toast {
   position: fixed;
   bottom: 2rem;
@@ -637,20 +638,20 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1.25rem;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
   font-size: 0.9375rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--m-shadow-lg);
 }
 
 .notif-toast--success {
-  background: #064e3b;
-  color: #d1fae5;
+  background: var(--m-success);
+  color: white;
   border: 1px solid rgba(16, 185, 129, 0.4);
 }
 
 .notif-toast--error {
-  background: #7f1d1d;
-  color: #fecaca;
+  background: var(--m-danger);
+  color: white;
   border: 1px solid rgba(239, 68, 68, 0.4);
 }
 
@@ -665,28 +666,33 @@ onMounted(() => {
   transform: translateX(-50%) translateY(12px);
 }
 
-/* 动画 */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-/* 滚动条样式 */
-.notifications-list::-webkit-scrollbar {
-  width: 6px;
-}
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
 
-.notifications-list::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-}
+  .header-actions {
+    width: 100%;
+  }
 
-.notifications-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
-}
+  .mark-all-read-btn,
+  .delete-all-btn {
+    flex: 1;
+    justify-content: center;
+  }
 
-.notifications-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  .notification-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
 }
 </style>
     

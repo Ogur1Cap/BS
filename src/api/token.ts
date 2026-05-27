@@ -1,3 +1,8 @@
+/*
+ * 【Token 持久化工具】
+ * 功能：JWT Token 和用户基本信息的本地存储管理
+ * 记住我：localStorage（持久）| 不记住：sessionStorage（会话级别）
+ */
 export type StoredUser = {
   username?: string
   /** 展示用昵称（来自账户设置） */

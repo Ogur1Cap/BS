@@ -156,7 +156,7 @@ export const mockDb = {
     reschedule(orderId: string, startTime: string): Order[] {
       const idx = orders.findIndex((o) => o.id === orderId)
       if (idx !== -1) {
-        if (!['pending', 'ongoing', 'completion_pending'].includes(orders[idx].status)) return [...orders]
+        if (!['pending', 'ongoing'].includes(orders[idx].status)) return [...orders]
         orders[idx].startTime = startTime
         if (orders[idx].status === 'pending') {
           orders[idx].status = 'ongoing'
@@ -169,8 +169,10 @@ export const mockDb = {
       const idx = orders.findIndex((o) => o.id === orderId)
       if (idx !== -1) {
         if (orders[idx].status === 'cancelled') return [...orders]
-        orders[idx].status = 'cancelled'
-        orders[idx].statusText = '已取消'
+        if (orders[idx].status === 'refund_requested') return [...orders]
+        if (orders[idx].status === 'refunded') return [...orders]
+        orders[idx].status = 'refund_requested'
+        orders[idx].statusText = '退款申请中'
         orders[idx].refundRequested = true
         orders[idx].refundReason = reason || '用户申请退款'
       }
@@ -233,6 +235,100 @@ export const mockDb = {
         profile = { ...profile, bio: payload.bio }
       }
       return { ...accountSettings, bio: profile.bio }
+    }
+  },
+
+  transactions: {
+    _data: (() => {
+      const now = new Date().toISOString()
+      return [
+        { id: 1, orderId: null, type: 'INCOME', amount: 8880, paymentMethod: 'alipay', description: '平台服务费收入', operatorId: 1, status: 'COMPLETED', createdAt: now, updatedAt: now },
+        { id: 2, orderId: null, type: 'INCOME', amount: 5600, paymentMethod: 'wechat', description: '护航订单收入', operatorId: 1, status: 'COMPLETED', createdAt: now, updatedAt: now },
+        { id: 3, orderId: null, type: 'EXPENSE', amount: 3200, paymentMethod: 'bank', description: '打手结算支出', operatorId: 1, status: 'COMPLETED', createdAt: now, updatedAt: now },
+        { id: 4, orderId: null, type: 'EXPENSE', amount: 500, paymentMethod: 'bank', description: '服务器运维费用', operatorId: 1, status: 'COMPLETED', createdAt: now, updatedAt: now },
+        { id: 5, orderId: null, type: 'INCOME', amount: 1200, paymentMethod: 'alipay', description: '装备代刷订单', operatorId: 1, status: 'COMPLETED', createdAt: now, updatedAt: now }
+      ] as Array<Record<string, unknown>>
+    })(),
+    list() { return [...this._data] },
+    create(payload: { type: string; amount: number; paymentMethod?: string; description?: string; orderId?: number }) {
+      const maxId = this._data.reduce((m, d) => Math.max(m, Number(d.id)), 0)
+      const now = new Date().toISOString()
+      const item: Record<string, unknown> = {
+        id: maxId + 1,
+        orderId: payload.orderId ?? null,
+        type: payload.type,
+        amount: payload.amount,
+        paymentMethod: payload.paymentMethod ?? '',
+        description: payload.description ?? '',
+        operatorId: 1,
+        status: 'COMPLETED',
+        createdAt: now,
+        updatedAt: now
+      }
+      this._data = [item, ...this._data]
+      return item
+    },
+    delete(id: number) {
+      this._data = this._data.filter(d => Number(d.id) !== id)
+    },
+    summary() {
+      const income = this._data.filter(d => String(d.type) === 'INCOME').reduce((s, d) => s + Number(d.amount), 0)
+      const expense = this._data.filter(d => String(d.type) === 'EXPENSE').reduce((s, d) => s + Number(d.amount), 0)
+      return { totalIncome: income, totalExpense: expense, netAmount: income - expense }
+    },
+    dailyStats(date?: string) {
+      return {
+        date: date || new Date().toISOString().slice(0, 10),
+        dailyIncome: 1500,
+        dailyExpense: 800,
+        transactionCount: 5
+      }
+    }
+  },
+
+  wallet: {
+    _wallet: { id: 1, userId: 1, balance: 100000, totalRecharged: 50000, version: 0, createdAt: new Date().toISOString() },
+    _txs: [] as Array<{ id: number; walletId: number; userId: number; amount: number; balanceAfter: number; type: string; orderId?: number; description?: string; createdAt: string }>,
+    _nextTxId: 1,
+    _initWallet(userId: number) {
+      if (userId !== this._wallet.userId) {
+        this._wallet = { id: userId, userId, balance: 100000, totalRecharged: 50000, version: 0, createdAt: new Date().toISOString() }
+      }
+      return { ...this._wallet }
+    },
+    getInfo(userId: number) {
+      const w = this._initWallet(userId)
+      return { wallet: w, transactions: [...this._txs].reverse() }
+    },
+    recharge(userId: number, amount: number, description?: string) {
+      const w = this._initWallet(userId)
+      w.balance += amount
+      w.totalRecharged += amount
+      w.version++
+      this._wallet = w
+      const tx = { id: this._nextTxId++, walletId: w.id, userId, amount, balanceAfter: w.balance, type: 'RECHARGE', description: description || '栗币充值', createdAt: new Date().toISOString() }
+      this._txs.push(tx)
+      return { ...w }
+    },
+    deduct(userId: number, amount: number, orderId?: number, description?: string) {
+      const w = this._initWallet(userId)
+      if (w.balance < amount) throw new Error('栗币余额不足')
+      w.balance -= amount
+      w.version++
+      this._wallet = w
+      const tx = { id: this._nextTxId++, walletId: w.id, userId, amount: -amount, balanceAfter: w.balance, type: 'ORDER_PAY', orderId, description: description || '订单支付', createdAt: new Date().toISOString() }
+      this._txs.push(tx)
+      return { ...w }
+    },
+    adminAdjust(userId: number, amount: number, description?: string) {
+      const w = this._initWallet(userId)
+      w.balance += amount
+      if (amount > 0) w.totalRecharged += amount
+      w.version++
+      this._wallet = w
+      const tx = { id: this._nextTxId++, walletId: w.id, userId, amount, balanceAfter: w.balance, type: 'ADMIN_ADJUST', description: description || '管理员调整', createdAt: new Date().toISOString() }
+      this._txs.push(tx)
+      return { ...w }
     }
   },
 

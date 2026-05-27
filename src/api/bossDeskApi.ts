@@ -124,5 +124,22 @@ export const bossDeskApi = {
       path: API_ENDPOINTS.bossDesk.revokePlayer(userId),
       auth: true
     })
+  },
+
+  async listRefundPending(): Promise<BossDeskOrder[]> {
+    return apiRequest<BossDeskOrder[]>({
+      method: 'GET',
+      path: API_ENDPOINTS.bossDesk.refundPending,
+      auth: true
+    })
+  },
+
+  async processRefund(orderId: string, approve: boolean, adminNote?: string): Promise<void> {
+    await apiRequest<unknown>({
+      method: 'POST',
+      path: API_ENDPOINTS.bossDesk.processRefund(orderId),
+      auth: true,
+      body: { approve, adminNote }
+    })
   }
 }

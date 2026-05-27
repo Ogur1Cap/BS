@@ -1,3 +1,12 @@
+/*
+ * 【用户状态管理 Store】全局用户画像 + 账户设置
+ * 功能：
+ *   - 登录后从服务端加载用户资料和设置
+ *   - 头像上传同步
+ *   - localStorage持久化用户基本信息（跨页面保持登录态）
+ *   - displayName getter：优先昵称，回退用户名
+ *   - resolvedAvatarUrl getter：解析相对路径为完整URL
+ */
 import { defineStore } from 'pinia'
 import type { Profile } from '../types/profile'
 import type { AccountSettings } from '../types/accountSettings'

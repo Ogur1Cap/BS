@@ -1,3 +1,8 @@
+<!--
+  【帮助中心】常见问题（FAQ）展示页面
+  功能：折叠面板展示FAQ分类列表
+  角色：所有登录用户
+-->
 <template>
   <div class="help-center-simple">
     <!-- 头部导航（复用现有组件） -->
@@ -210,12 +215,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 基础样式：简化，减少装饰 */
 .help-center-simple {
   min-height: 100vh;
-  background-color: #0f172a;
-  color: #e2e8f0;
-  font-family: 'Segoe UI', sans-serif;
+  background-color: var(--m-bg);
+  color: var(--m-text);
+  font-family: var(--m-font-body);
 }
 
 .container {
@@ -225,27 +229,25 @@ onMounted(async () => {
   padding: 0 1rem;
 }
 
-/* 顶部标题+搜索 */
 .top-bar {
   padding: 2rem 0;
   text-align: center;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--m-border);
 }
 
 .top-bar h1 {
   font-size: 1.8rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  color: #f3f4f6;
+  color: var(--m-text);
 }
 
 .top-bar p {
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   margin-bottom: 1.5rem;
   font-size: 1rem;
 }
 
-/* 搜索框：简化样式 */
 .search-box {
   max-width: 500px;
   margin: 0 auto;
@@ -255,11 +257,18 @@ onMounted(async () => {
 .search-box input {
   width: 100%;
   padding: 0.8rem 0.8rem 0.8rem 2.5rem;
-  background-color: #1e293b;
-  border: 1px solid #3b82f633;
-  border-radius: 0.5rem;
-  color: #e2e8f0;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  color: var(--m-text);
   font-size: 0.95rem;
+  transition: border-color var(--m-transition);
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
 }
 
 .search-box button {
@@ -269,81 +278,89 @@ onMounted(async () => {
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--m-text-muted);
   cursor: pointer;
 }
 
-/* FAQ分类区：简化 */
 .faq-section {
   padding: 2.5rem 0;
 }
 
-/* 分类按钮：简化样式，横向排列 */
 .faq-categories {
   display: flex;
   gap: 1rem;
   margin-bottom: 1.5rem;
-  overflow-x: auto; /* 小屏可滚动 */
+  overflow-x: auto;
   padding-bottom: 0.5rem;
 }
 
 .category-btn {
   padding: 0.5rem 1.2rem;
-  background-color: #1e293b;
-  border: 1px solid #3b82f633;
-  border-radius: 0.5rem;
-  color: #94a3b8;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  color: var(--m-text-secondary);
   font-size: 0.95rem;
   cursor: pointer;
-  white-space: nowrap; /* 防止文字换行 */
+  white-space: nowrap;
+  transition: all var(--m-transition);
+}
+
+.category-btn:hover {
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text);
 }
 
 .category-btn.active {
-  background-color: #3b82f6;
+  background-color: var(--m-accent);
   color: white;
-  border-color: #3b82f6;
+  border-color: var(--m-accent);
 }
 
-/* FAQ列表：简化间距 */
 .faq-list {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
 }
 
-/* 空提示：简化样式 */
 .empty-tip {
   text-align: center;
   padding: 2rem 1rem;
-  background-color: #1e293b;
-  border-radius: 0.5rem;
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
   margin-top: 1rem;
+  border: 1px dashed var(--m-border);
 }
 
 .empty-tip i {
   font-size: 2rem;
-  color: #4b5563;
+  color: var(--m-text-muted);
   margin-bottom: 0.5rem;
 }
 
 .empty-tip p {
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   margin-bottom: 1rem;
 }
 
 .empty-tip button {
   padding: 0.5rem 1rem;
-  background-color: #3b82f633;
-  color: #3b82f6;
-  border: 1px solid #3b82f655;
-  border-radius: 0.5rem;
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
   cursor: pointer;
+  transition: all var(--m-transition);
 }
 
-/* 联系客服区：简化布局 */
+.empty-tip button:hover {
+  background-color: var(--m-accent);
+  color: white;
+}
+
 .contact-section {
   padding: 2.5rem 0;
-  background-color: #1e293b;
+  background-color: var(--m-bg-secondary);
   text-align: center;
 }
 
@@ -351,10 +368,9 @@ onMounted(async () => {
   font-size: 1.5rem;
   font-weight: 600;
   margin-bottom: 1.5rem;
-  color: #f3f4f6;
+  color: var(--m-text);
 }
 
-/* 联系方式：简化，横向排列（大屏）/ 纵向（小屏） */
 .contact-ways {
   display: flex;
   flex-wrap: wrap;
@@ -365,23 +381,27 @@ onMounted(async () => {
 
 .contact-btn {
   padding: 0.8rem 1.5rem;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
   font-weight: 600;
   text-decoration: none;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  transition: all var(--m-transition);
 }
 
 .primary {
-  background-color: #3b82f6;
+  background-color: var(--m-accent);
   color: white;
 }
 
-/* 联系信息：简化排版 */
+.primary:hover {
+  background-color: var(--m-accent-hover);
+}
+
 .contact-info {
   text-align: left;
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   font-size: 0.95rem;
 }
 
@@ -392,15 +412,18 @@ onMounted(async () => {
   gap: 0.5rem;
 }
 
-/* 响应式：简化适配 */
 @media (max-width: 768px) {
   .contact-ways {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .contact-info {
     text-align: center;
+  }
+
+  .contact-info p {
+    justify-content: center;
   }
 }
 </style>

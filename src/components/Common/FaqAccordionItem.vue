@@ -53,9 +53,9 @@ onMounted(() => {
 
 <style scoped>
 .faq-accordion-item {
-  background-color: #1e293b;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(59, 130, 246, 0.1);
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
+  border: 1px solid var(--m-border);
   overflow: hidden;
 }
 
@@ -64,7 +64,7 @@ onMounted(() => {
   padding: 1rem 1.5rem;
   background: none;
   border: none;
-  color: white;
+  color: var(--m-text);
   font-size: 1rem;
   font-weight: 500;
   text-align: left;
@@ -72,16 +72,16 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color var(--m-transition);
 }
 
 .faq-question:hover {
-  background-color: rgba(59, 130, 246, 0.05);
+  background-color: var(--m-bg-tertiary);
 }
 
 .faq-question i {
-  color: #94a3b8;
-  transition: transform 0.3s ease;
+  color: var(--m-text-muted);
+  transition: transform var(--m-transition);
 }
 
 .faq-answer {
@@ -93,12 +93,11 @@ onMounted(() => {
 .faq-answer p {
   margin: 0;
   padding: 0 0 1rem 0;
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   font-size: 0.9375rem;
   line-height: 1.6;
 }
 
-/* 打开状态 */
 .faq-accordion-item:has(.faq-answer[style*="max-height: 0px"]) .faq-answer {
   padding: 0 1.5rem;
 }

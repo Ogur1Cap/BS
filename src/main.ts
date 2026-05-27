@@ -7,16 +7,56 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { 
   faUser, faLock, faEye, faEyeSlash, faSpinner, 
   faEnvelope, faPhone, faCheck, 
-  faTimes, faExclamationTriangle, faArrowRight 
-  ,faRocket,       // 对应 fa-rocket
-  faShield,       // 对应 fa-shield
-  faGamepad,      // 对应 fa-gamepad
-  faHistory,      // 对应 fa-history
-  faListAlt,      // 对应 fa-list-alt
-  faUsers,        // 对应 fa-users
-  faComments      // 对应 fa-comments
+  faTimes, faExclamationTriangle, faArrowRight, faBell, faTrash,
+  faChevronLeft, faChevronRight, faFileText, faRefresh, faStar,
+  faRocket,
+  faShield,
+  faGamepad,
+  faHistory,
+  faListAlt,
+  faUsers,
+  faComments,
+  faComment,
+  faInfoCircle,
+  faClock,
+  faMoneyBillWave,
+  faCalendarAlt,
+  faUndo,
+  faTag,
+  faTrophy,
+  faSearch,
+  faPlus,
+  faPlusCircle,
+  faSave,
+  faBook,
+  faCreditCard,
+  faChartBar,
+  faShoppingCart,
+  faCheckCircle,
+  faExclamationCircle,
+  faTimesCircle,
+  faUserPlus,
+  faUserSecret,
+  faUserTimes,
+  faRandom,
+  faGavel,
+  faHeadphones,
+  faCog,
+  faEdit,
+  faCamera,
+  faUpload,
+  faLink,
+  faBan,
+  faPencil,
+  faPaperPlane,
+  faQuestionCircle,
+  faHome,
+  faHeart,
+  faCoins,
+  faWallet,
+  faMoneyCheck
 } from '@fortawesome/free-solid-svg-icons'
-import { faWeixin, faQq,} from '@fortawesome/free-brands-svg-icons'
+import { faWeixin, faQq, faWeibo } from '@fortawesome/free-brands-svg-icons'
 
 // 添加图标到库
 library.add(faRocket, 
@@ -25,7 +65,13 @@ library.add(faRocket,
   faHistory, 
   faListAlt, 
   faUsers, 
-  faComments, faUser, faLock, faEye, faEyeSlash, faSpinner, faEnvelope, faPhone, faCheck, faTimes, faExclamationTriangle, faArrowRight, faWeixin, faQq)
+  faComments, faComment, faUser, faLock, faEye, faEyeSlash, faSpinner, faEnvelope, faPhone, faCheck, faTimes, faExclamationTriangle, faArrowRight, faBell, faTrash, faChevronLeft, faChevronRight, faFileText, faRefresh, faStar, faWeixin, faQq, faWeibo,
+  faInfoCircle, faClock, faMoneyBillWave, faCalendarAlt, faUndo,
+  faTag, faTrophy, faSearch, faPlus, faPlusCircle, faSave, faBook,
+  faCreditCard, faChartBar, faShoppingCart, faCheckCircle, faExclamationCircle, faTimesCircle,
+  faUserPlus, faUserSecret, faUserTimes, faRandom, faGavel,
+  faHeadphones, faCog, faEdit, faCamera, faUpload, faLink, faBan, faPencil,
+  faPaperPlane, faQuestionCircle, faHome, faHeart, faCoins, faWallet, faMoneyCheck)
 
 // 创建Vue应用实例
 const app = createApp(App)

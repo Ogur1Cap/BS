@@ -1,50 +1,36 @@
 <template>
   <router-link :to="link" class="service-card">
-    <div class="service-icon">
-      <i :class="icon"></i>
+    <div class="card-icon-wrap">
+      <i :class="'fa ' + icon"></i>
     </div>
-    <h3 class="service-title">{{ title }}</h3>
-    <p class="service-desc">{{ description }}</p>
-    <div class="service-arrow">
-      <i class="fa fa-arrow-right"></i>
+    <div class="card-content">
+      <span class="card-title">{{ title }}</span>
+      <span class="card-desc">{{ description }}</span>
     </div>
+    <span class="card-indicator">→</span>
   </router-link>
 </template>
 
 <script setup lang="ts">
-import { defineProps } from 'vue';
-
-// 定义props
-const props = defineProps({
-  title: {
-    type: String,
-    required: true
-  },
-  description: {
-    type: String,
-    required: true
-  },
-  icon: {
-    type: String,
-    required: true
-  },
-  link: {
-    type: String,
-    required: true
-  }
-});
+defineProps<{
+  title: string
+  description: string
+  link: string
+  icon: string
+}>()
 </script>
 
 <style scoped>
 .service-card {
-  background-color: #1f2937;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  transition: all 0.3s ease;
-  text-decoration: none;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  background: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: 14px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
   position: relative;
   overflow: hidden;
 }
@@ -52,61 +38,90 @@ const props = defineProps({
 .service-card::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-  transform: scaleX(0);
-  transition: transform 0.3s ease;
+  inset: 0;
+  background: linear-gradient(135deg, var(--m-accent-light), transparent 80%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .service-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-  border-color: rgba(59, 130, 246, 0.5);
+  border-color: var(--m-accent);
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
 }
 
 .service-card:hover::before {
-  transform: scaleX(1);
+  opacity: 1;
 }
 
-.service-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+.card-icon-wrap {
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
-  margin-bottom: 1rem;
+  background: var(--m-accent-light);
+  border: 1px solid rgba(37, 99, 235, 0.08);
+  border-radius: 12px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
 }
 
-.service-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #f3f4f6;
-  margin-bottom: 0.5rem;
+.service-card:hover .card-icon-wrap {
+  background: var(--m-accent);
+  border-color: var(--m-accent);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-.service-desc {
-  color: #9ca3af;
-  font-size: 0.9375rem;
-  margin-bottom: 1rem;
+.service-card:hover .card-icon-wrap i {
+  color: white;
+}
+
+.card-icon-wrap i {
+  font-size: 1.05rem;
+  color: var(--m-accent);
+  transition: color 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  position: relative;
+  z-index: 1;
   flex: 1;
 }
 
-.service-arrow {
-  display: flex;
-  justify-content: flex-end;
-  color: #3b82f6;
-  transition: transform 0.3s ease;
+.card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--m-text);
+  line-height: 1.3;
 }
 
-.service-card:hover .service-arrow {
-  transform: translateX(5px);
+.card-desc {
+  font-size: 0.8rem;
+  color: var(--m-text-muted);
+  line-height: 1.4;
+}
+
+.card-indicator {
+  font-size: 1.1rem;
+  color: var(--m-text-muted);
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.25s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.service-card:hover .card-indicator {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--m-accent);
 }
 </style>
-    

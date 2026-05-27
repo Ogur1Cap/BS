@@ -1,3 +1,7 @@
+<!--
+  【404 页面】未找到页面时的兜底展示
+  功能：404动画 + 返回首页 / 返回上一页 按钮
+-->
 <template>
   <div class="not-found-container">
     <!-- 主内容区域 -->
@@ -100,13 +104,13 @@ onMounted(() => {
 /* 页面容器 */
 .not-found-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background-color: var(--m-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--m-font-body);
 }
 
 /* 主内容区域 */
@@ -131,7 +135,7 @@ onMounted(() => {
 .number-4, .number-0 {
   font-size: clamp(4rem, 15vw, 8rem);
   font-weight: 900;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+  background: linear-gradient(135deg, var(--m-accent), #06b6d4, #14b8a6);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -154,14 +158,14 @@ onMounted(() => {
 .error-title {
   font-size: clamp(1.5rem, 5vw, 2.5rem);
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--m-text);
   margin-bottom: 1rem;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .error-description {
   font-size: 1.125rem;
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   line-height: 1.6;
 }
 
@@ -178,51 +182,106 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   padding: 0.875rem 1.5rem;
-  border-radius: 0.75rem;
+  border-radius: var(--m-radius);
   font-weight: 500;
   text-decoration: none;
-  transition: all 0.3s ease;
-  border: none;
+  transition: all var(--m-transition);
+  border: 1px solid var(--m-border);
   cursor: pointer;
   font-size: 1rem;
+  position: relative;
+  overflow: hidden;
 }
 
 .primary-button {
-  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  background-color: var(--m-accent);
   color: white;
+  border-color: var(--m-accent);
   box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.primary-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(to bottom, var(--m-accent), var(--m-accent-hover));
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
 }
 
 .primary-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+  background-color: var(--m-accent-hover);
+  border-color: var(--m-accent-hover);
+}
+
+.primary-button:hover::before {
+  transform: scaleY(1);
 }
 
 .secondary-button {
-  background: rgba(30, 41, 59, 0.8);
-  color: #cbd5e1;
-  border: 1px solid rgba(100, 116, 139, 0.3);
-  backdrop-filter: blur(10px);
+  background-color: var(--m-bg-secondary);
+  color: var(--m-text);
+  border-color: var(--m-border);
+}
+
+.secondary-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
 }
 
 .secondary-button:hover {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: rgba(59, 130, 246, 0.5);
-  color: #f1f5f9;
+  border-color: var(--m-accent);
+  color: var(--m-accent);
+}
+
+.secondary-button:hover::before {
+  transform: scaleY(1);
 }
 
 /* 搜索建议 */
 .search-suggestion {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(100, 116, 139, 0.2);
-  border-radius: 1rem;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius);
   padding: 1.5rem;
   margin-top: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.search-suggestion::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
+}
+
+.search-suggestion:hover::before {
+  transform: scaleY(1);
 }
 
 .suggestion-text {
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   margin-bottom: 1rem;
   font-size: 0.875rem;
 }
@@ -235,31 +294,33 @@ onMounted(() => {
 .search-field {
   flex: 1;
   padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(100, 116, 139, 0.3);
-  color: #f1f5f9;
+  border-radius: var(--m-radius-sm);
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border);
+  color: var(--m-text);
   font-size: 0.875rem;
+  transition: border-color var(--m-transition);
 }
 
 .search-field:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
 }
 
 .search-button {
   padding: 0.75rem 1rem;
-  background: #3b82f6;
-  border: none;
-  border-radius: 0.5rem;
+  background-color: var(--m-accent);
+  border: 1px solid var(--m-accent);
+  border-radius: var(--m-radius-sm);
   color: white;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: all var(--m-transition);
 }
 
 .search-button:hover {
-  background: #2563eb;
+  background-color: var(--m-accent-hover);
+  border-color: var(--m-accent-hover);
 }
 
 /* 背景效果 */
@@ -306,7 +367,7 @@ onMounted(() => {
 .light-1 {
   width: 200px;
   height: 200px;
-  background: #3b82f6;
+  background: var(--m-accent);
   top: 20%;
   left: 10%;
   animation-delay: 0s;
@@ -315,7 +376,7 @@ onMounted(() => {
 .light-2 {
   width: 300px;
   height: 300px;
-  background: #8b5cf6;
+  background: #06b6d4;
   top: 60%;
   right: 15%;
   animation-delay: 2s;
@@ -324,7 +385,7 @@ onMounted(() => {
 .light-3 {
   width: 150px;
   height: 150px;
-  background: #ec4899;
+  background: #14b8a6;
   bottom: 20%;
   left: 20%;
   animation-delay: 4s;

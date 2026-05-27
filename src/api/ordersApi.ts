@@ -1,3 +1,9 @@
+/*
+ * 【订单 API 层】
+ * 功能：封装所有订单相关的后端请求
+ * 接口：list(列表)、create(创建)、cancel(取消)、refund(退款)、reschedule(改期)、getOrderDetail(详情)
+ * 数据归一化：normalizeOrder() 将后端状态枚举转为前端统一的 OrderStatus 类型
+ */
 import { apiRequest } from './request'
 import { API_ENDPOINTS } from './endpoints'
 import type { CreateOrderPayload, Order, OrderStatus, RefundOrderPayload, RescheduleOrderPayload } from '../types/order'

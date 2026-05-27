@@ -1,44 +1,63 @@
 <template>
+  <!--
+  【BOSS 控制台】管理员后台 - 最高权限操作中心
+  功能模块：
+    1. 订单审核 - 处理打手提交的「完成申请」（同意/驳回）
+    2. 转派订单 - 将订单从一个打手转给另一个打手
+    3. 退款处理 - 审核用户退款申请（批准/拒绝）
+    4. 违规管理 - 查看违规记录、处理申诉（警告/限制/封禁/撤销）
+    5. 入驻审核 - 审核顾客提交的打手入驻申请
+    6. 解除打手 - 移除打手权限
+  角色：仅 userLevel >= 2（Boss管理员）
+  -->
   <div class="boss-desk-page">
     <Header />
 
     <main class="bd-main">
       <div class="container">
         <header class="bd-hero">
-          <div class="bd-hero-text">
-            <span class="bd-badge"><i class="fa fa-shield"></i> BOSS 控制台 · 最高权限</span>
-            <h1>订单审核与调度</h1>
-            <p>处理打手提交的「完成申请」，或转派订单并通知顾客。</p>
-          </div>
-          <div class="bd-hero-stats">
-            <div class="bd-stat">
-              <span class="bd-stat-label">待审核完成</span>
-              <span class="bd-stat-value bd-warn">{{ stats?.pendingCompletionCount ?? '—' }}</span>
+          <div class="welcome">
+            <div class="welcome-text">
+              <span class="welcome-greeting"><i class="fa fa-shield"></i> BOSS 控制台 · 最高权限</span>
+              <h1 class="welcome-title">订单审核与调度</h1>
+              <p class="welcome-date">处理打手提交的「完成申请」，或转派订单并通知顾客。</p>
             </div>
-            <div class="bd-stat">
-              <span class="bd-stat-label">可调度订单</span>
-              <span class="bd-stat-value bd-ok">{{ stats?.manageableOrderCount ?? '—' }}</span>
-            </div>
-            <div v-if="stats?.pendingJoinCount != null" class="bd-stat">
-              <span class="bd-stat-label">待审入驻</span>
-              <span class="bd-stat-value bd-warn">{{ stats.pendingJoinCount }}</span>
+            <div class="welcome-stats">
+              <div class="stat">
+                <span class="stat-value">{{ stats?.pendingCompletionCount ?? '—' }}</span>
+                <span class="stat-label">待审核完成</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat">
+                <span class="stat-value">{{ stats?.manageableOrderCount ?? '—' }}</span>
+                <span class="stat-label">可调度订单</span>
+              </div>
+              <div v-if="stats?.pendingJoinCount != null" class="stat-divider"></div>
+              <div v-if="stats?.pendingJoinCount != null" class="stat">
+                <span class="stat-value">{{ stats.pendingJoinCount }}</span>
+                <span class="stat-label">待审入驻</span>
+              </div>
             </div>
           </div>
         </header>
 
-        <p v-if="stats?.displayHint" class="bd-hint">
-          <i class="fa fa-lightbulb-o"></i> {{ stats.displayHint }}
-        </p>
+        <div v-if="stats?.displayHint" class="bd-hint">
+          <i class="far fa-lightbulb"></i> {{ stats.displayHint }}
+        </div>
 
         <section class="bd-section">
-          <div class="bd-section-head">
-            <h2><i class="fa fa-check-square-o"></i> 待审核完成申请</h2>
+          <div class="section-header">
+            <h2 class="section-title"><i class="far fa-square-check"></i> 待审核完成申请</h2>
+            <span class="section-line"></span>
             <button type="button" class="bd-refresh" :disabled="loading" @click="loadAll">
               <i class="fa" :class="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
               刷新
             </button>
           </div>
-          <div v-if="loading && !completionPending.length" class="bd-loading">加载中…</div>
+          <div v-if="loading && !completionPending.length" class="bd-loading">
+            <i class="fa fa-spinner fa-spin"></i>
+            <span>加载中…</span>
+          </div>
           <div v-else-if="!completionPending.length" class="bd-empty">暂无待审核的完成申请。</div>
           <ul v-else class="bd-order-list">
             <li v-for="row in completionPending" :key="'c-' + String(row.id)" class="bd-card">
@@ -64,7 +83,7 @@
                   :disabled="actingId === String(row.id)"
                   @click="approve(String(row.id))"
                 >
-                  同意完成
+                  <i class="fa fa-check"></i> 同意完成
                 </button>
                 <button
                   type="button"
@@ -72,7 +91,7 @@
                   :disabled="actingId === String(row.id)"
                   @click="openReject(String(row.id))"
                 >
-                  驳回
+                  <i class="fa fa-times"></i> 驳回
                 </button>
               </div>
             </li>
@@ -80,8 +99,9 @@
         </section>
 
         <section class="bd-section">
-          <div class="bd-section-head">
-            <h2><i class="fa fa-random"></i> 转派订单</h2>
+          <div class="section-header">
+            <h2 class="section-title"><i class="fa fa-random"></i> 转派订单</h2>
+            <span class="section-line"></span>
           </div>
           <p class="bd-sub">以下为待接单、进行中或待审核中的订单，可选择目标打手并填写备注（将通知顾客及相关打手）。</p>
           <div v-if="!manageable.length" class="bd-empty subtle">暂无可调度订单。</div>
@@ -108,9 +128,44 @@
           </ul>
         </section>
 
+        <section class="bd-section">
+          <div class="section-header">
+            <h2 class="section-title"><i class="fa fa-credit-card"></i> 退款处理</h2>
+            <span class="section-line"></span>
+          </div>
+          <p class="bd-sub">处理用户提交的退款申请，可批准或拒绝，并通知用户处理结果。</p>
+          <div v-if="!refundOrders.length" class="bd-empty subtle">暂无待处理的退款申请。</div>
+          <ul v-else class="bd-order-list">
+            <li v-for="order in refundOrders" :key="'r-' + String(order.id)" class="bd-card">
+              <div class="bd-card-main">
+                <div class="bd-card-title">
+                  <span class="bd-status-pill">{{ String(order.statusText || order.status) }}</span>
+                  <span class="bd-game">{{ String(order.game || '—') }}</span>
+                  <span class="bd-type">{{ String(order.serviceType || '') }}</span>
+                </div>
+                <div class="bd-meta">
+                  <span><i class="fa fa-user"></i> {{ String(order.customerUsername || '—') }}</span>
+                  <span><i class="fa fa-user-secret"></i> 打手：{{ deskPlayerName(order, '未指定') }}</span>
+                  <span>#{{ String(order.id) }}</span>
+                </div>
+                <p class="bd-note"><strong>退款原因：</strong>{{ order.refundReason || '未提供' }}</p>
+              </div>
+              <div class="bd-card-actions">
+                <button type="button" class="bd-btn bd-btn-success" :disabled="actingId === String(order.id)" @click="processRefund(String(order.id), true)">
+                  批准
+                </button>
+                <button type="button" class="bd-btn bd-btn-danger" :disabled="actingId === String(order.id)" @click="processRefund(String(order.id), false)">
+                  拒绝
+                </button>
+              </div>
+            </li>
+          </ul>
+        </section>
+
         <section class="bd-section" id="violation-management">
-          <div class="bd-section-head">
-            <h2><i class="fa fa-gavel"></i> 违规预警管理</h2>
+          <div class="section-header">
+            <h2 class="section-title"><i class="fa fa-gavel"></i> 违规预警管理</h2>
+            <span class="section-line"></span>
             <button type="button" class="bd-refresh" :disabled="loading" @click="loadAll">
               <i class="fa" :class="loading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i>
             </button>
@@ -134,14 +189,14 @@
                 <div class="bd-meta">
                   <span><i class="fa fa-user"></i> {{ row.username }} (ID: {{ row.userId }})</span>
                   <span><i class="fa fa-history"></i> 违规: {{ row.violationCount }}次</span>
-                  <span><i class="fa fa-clock-o"></i> {{ new Date(row.createdAt).toLocaleString() }}</span>
+                  <span><i class="far fa-clock"></i> {{ new Date(row.createdAt).toLocaleString() }}</span>
                   <span v-if="row.relatedId"><i class="fa fa-link"></i> 关联ID: #{{ row.relatedId }}</span>
                 </div>
                 <p class="bd-note" style="color: #f87171;">
                   <strong>违规详情：</strong>{{ row.description }}
                 </p>
                 <div v-if="row.appealReason" class="bd-note appeal-box">
-                  <strong><i class="fa fa-commenting-o"></i> 用户申诉理由：</strong>
+                  <strong><i class="far fa-comment-dots"></i> 用户申诉理由：</strong>
                   <p>{{ row.appealReason }}</p>
                 </div>
                 <div v-if="row.adminAction" class="bd-note resolved-box">
@@ -157,8 +212,9 @@
         </section>
 
         <section class="bd-section">
-          <div class="bd-section-head">
-            <h2><i class="fa fa-user-plus"></i> 打手入驻审核</h2>
+          <div class="section-header">
+            <h2 class="section-title"><i class="fa fa-user-plus"></i> 打手入驻审核</h2>
+            <span class="section-line"></span>
           </div>
           <p class="bd-sub">顾客在「加入我们」提交的资料，通过后将在打手大厅展示并开通打手工作台。</p>
           <div v-if="!joinPending.length" class="bd-empty subtle">暂无待审核入驻申请。</div>
@@ -193,8 +249,9 @@
         </section>
 
         <section class="bd-section">
-          <div class="bd-section-head">
-            <h2><i class="fa fa-user-times"></i> 解除打手权限</h2>
+          <div class="section-header">
+            <h2 class="section-title"><i class="fa fa-user-times"></i> 解除打手权限</h2>
+            <span class="section-line"></span>
             <button type="button" class="bd-refresh" :disabled="loading" @click="loadAll">
               <i class="fa fa-refresh"></i>
             </button>
@@ -230,7 +287,12 @@
 
     <div v-if="joinRejectForId" class="bd-modal-backdrop" @click.self="joinRejectForId = null">
       <div class="bd-modal">
-        <h3>拒绝入驻原因</h3>
+        <div class="bd-modal-header">
+          <h3>拒绝入驻原因</h3>
+          <button type="button" class="bd-modal-close" @click="joinRejectForId = null">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
         <textarea v-model="joinRejectReason" rows="3" placeholder="将通知申请人" class="bd-textarea"></textarea>
         <div class="bd-modal-actions">
           <button type="button" class="bd-btn bd-btn-ghost" @click="joinRejectForId = null">取消</button>
@@ -241,7 +303,12 @@
 
     <div v-if="rejectForId" class="bd-modal-backdrop" @click.self="rejectForId = null">
       <div class="bd-modal">
-        <h3>驳回原因</h3>
+        <div class="bd-modal-header">
+          <h3>驳回原因</h3>
+          <button type="button" class="bd-modal-close" @click="rejectForId = null">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
         <textarea v-model="rejectReason" rows="3" placeholder="将通知顾客与打手" class="bd-textarea"></textarea>
         <div class="bd-modal-actions">
           <button type="button" class="bd-btn bd-btn-ghost" @click="rejectForId = null">取消</button>
@@ -252,7 +319,12 @@
 
     <div v-if="violationHandleFor" class="bd-modal-backdrop" @click.self="violationHandleFor = null">
       <div class="bd-modal bd-modal-wide">
-        <h3>处理违规记录 #{{ violationHandleFor.id }}</h3>
+        <div class="bd-modal-header">
+          <h3>处理违规记录 #{{ violationHandleFor.id }}</h3>
+          <button type="button" class="bd-modal-close" @click="violationHandleFor = null">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
         <div class="bd-meta mb-2">用户: {{ violationHandleFor.username }} | 当前违规次数: {{ violationHandleFor.violationCount }}</div>
         
         <label class="bd-label">处理动作</label>
@@ -275,7 +347,12 @@
 
     <div v-if="reassignFor" class="bd-modal-backdrop" @click.self="reassignFor = null">
       <div class="bd-modal bd-modal-wide">
-        <h3>转派订单 #{{ reassignFor.id }}</h3>
+        <div class="bd-modal-header">
+          <h3>转派订单 #{{ reassignFor.id }}</h3>
+          <button type="button" class="bd-modal-close" @click="reassignFor = null">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
         <label class="bd-label">目标打手</label>
         <select v-model="reassignPlayerId" class="bd-select">
           <option disabled value="">请选择</option>
@@ -293,6 +370,16 @@
 </template>
 
 <script setup lang="ts">
+/*
+ * BOSS 控制台 - 核心业务逻辑
+ * 管理功能：
+ *   1. 订单审核 - approve() / reject() 处理打手完成申请
+ *   2. 转派订单 - reassign() 将订单转给其他打手
+ *   3. 退款处理 - processRefund() 批准/拒绝退款
+ *   4. 违规管理 - openHandleViolation() 处理违规记录和申诉
+ *   5. 入驻审核 - approveJoinApp() 审核打手入驻
+ *   6. 解除打手 - revokePlayer() 移除打手权限
+ */
 import { ref, onMounted } from 'vue'
 import Header from '../layouts/Header.vue'
 import Footer from '../layouts/Footer.vue'
@@ -306,6 +393,7 @@ import {
 } from '../api/bossDeskApi'
 import { violationApi, type ViolationRecord } from '../api/violationApi'
 import { computed } from 'vue'
+import { useEscKey } from '../composables/useEscKey'
 
 const stats = ref<BossDeskStats | null>(null)
 const completionPending = ref<BossDeskOrder[]>([])
@@ -322,6 +410,7 @@ const joinRejectReason = ref('')
 const reassignFor = ref<BossDeskOrder | null>(null)
 const reassignPlayerId = ref('')
 const reassignRemark = ref('')
+const refundOrders = ref<BossDeskOrder[]>([])
 
 const violationTab = ref<'pending' | 'appealed' | 'all'>('pending')
 const pendingViolations = ref<ViolationRecord[]>([])
@@ -330,6 +419,28 @@ const allViolations = ref<ViolationRecord[]>([])
 const violationHandleFor = ref<ViolationRecord | null>(null)
 const violationAction = ref('WARNING')
 const violationNotes = ref('')
+
+const showRejectModal = computed({
+  get: () => rejectForId.value !== null,
+  set: (v: boolean) => { if (!v) rejectForId.value = null }
+})
+const showJoinRejectModal = computed({
+  get: () => joinRejectForId.value !== null,
+  set: (v: boolean) => { if (!v) joinRejectForId.value = null }
+})
+const showViolationHandleModal = computed({
+  get: () => violationHandleFor.value !== null,
+  set: (v: boolean) => { if (!v) violationHandleFor.value = null }
+})
+const showReassignModal = computed({
+  get: () => reassignFor.value !== null,
+  set: (v: boolean) => { if (!v) reassignFor.value = null }
+})
+
+useEscKey(showRejectModal, () => { rejectForId.value = null })
+useEscKey(showJoinRejectModal, () => { joinRejectForId.value = null })
+useEscKey(showViolationHandleModal, () => { violationHandleFor.value = null })
+useEscKey(showReassignModal, () => { reassignFor.value = null })
 
 const currentViolations = computed(() => {
   if (violationTab.value === 'pending') return pendingViolations.value
@@ -367,18 +478,19 @@ function getAdminActionText(action: string) {
 }
 
 async function loadViolations() {
-  try {
-    const [pending, appealed] = await Promise.all([
-      violationApi.getPendingViolations(),
-      violationApi.getAppealedViolations()
-    ])
-    pendingViolations.value = pending
-    appealedViolations.value = appealed
-    if (violationTab.value === 'all') {
-      await loadAllViolations()
-    }
-  } catch (e) {
-    console.error('加载违规记录失败', e)
+  const results = await Promise.allSettled([
+    violationApi.getPendingViolations(),
+    violationApi.getAppealedViolations()
+  ])
+  const [pending, appealed] = results.map((r, i) => {
+    if (r.status === 'fulfilled') return r.value
+    console.error('违规数据加载失败:', ['pending','appealed'][i], r.reason)
+    return []
+  })
+  pendingViolations.value = pending as ViolationRecord[]
+  appealedViolations.value = appealed as ViolationRecord[]
+  if (violationTab.value === 'all') {
+    await loadAllViolations()
   }
 }
 
@@ -425,30 +537,35 @@ function deskPlayerName(row: BossDeskOrder, emptyLabel = '—'): string {
 
 async function loadAll() {
   loading.value = true
-  try {
-    const [st, cp, mg, pl, jp, pa] = await Promise.all([
-      bossDeskApi.getStats(),
-      bossDeskApi.listCompletionPending(),
-      bossDeskApi.listManageable(),
-      bossDeskApi.listPlayers(),
-      bossDeskApi.listJoinPending(),
-      bossDeskApi.listPlayerAccounts()
-    ])
-    await loadViolations()
-    stats.value = st
-    completionPending.value = cp
-    manageable.value = mg
-    players.value = pl
-    joinPending.value = jp
-    playerAccounts.value = pa
-  } catch (e) {
-    console.error(e)
-    alert(e instanceof Error ? e.message : '加载失败')
-  } finally {
-    loading.value = false
-  }
+  const results = await Promise.allSettled([
+    bossDeskApi.getStats(),
+    bossDeskApi.listCompletionPending(),
+    bossDeskApi.listManageable(),
+    bossDeskApi.listPlayers(),
+    bossDeskApi.listJoinPending(),
+    bossDeskApi.listPlayerAccounts(),
+    bossDeskApi.listRefundPending()
+  ])
+
+  const [st, cp, mg, pl, jp, pa, ro] = results.map((r, i) => {
+    if (r.status === 'fulfilled') return r.value
+    console.error('BOSS 模块加载失败:', ['stats','completionPending','manageable','players','joinPending','playerAccounts','refundOrders'][i], r.reason)
+    return null
+  })
+
+  if (st) stats.value = st as BossDeskStats
+  if (cp) completionPending.value = cp as BossDeskOrder[]
+  if (mg) manageable.value = mg as BossDeskOrder[]
+  if (pl) players.value = pl as BossPlayerOption[]
+  if (jp) joinPending.value = jp as BossJoinApplication[]
+  if (pa) playerAccounts.value = pa as BossPlayerAccountRow[]
+  if (ro) refundOrders.value = ro as BossDeskOrder[]
+
+  await loadViolations()
+  loading.value = false
 }
 
+// 【管理功能-1】同意打手的完成申请 → 订单状态变为已完成 → 打手获得佣金
 async function approve(orderId: string) {
   actingId.value = orderId
   try {
@@ -467,6 +584,7 @@ function openReject(orderId: string) {
   rejectReason.value = ''
 }
 
+// 【管理功能-1】驳回完成申请 → 订单回退到进行中 → 打手可重新申请
 async function confirmReject() {
   const id = rejectForId.value
   if (!id) return
@@ -489,6 +607,7 @@ function openReassign(row: BossDeskOrder) {
   reassignRemark.value = ''
 }
 
+// 【管理功能-2】转派订单：选择目标打手 → 填写备注 → 通知顾客和新打手
 async function confirmReassign() {
   const row = reassignFor.value
   if (!row) return
@@ -516,6 +635,7 @@ async function confirmReassign() {
   }
 }
 
+// 【管理功能-5】通过打手入驻申请 → 用户获得打手身份 → 在大厅展示
 async function approveJoinApp(applicationId: string) {
   actingId.value = 'j' + applicationId
   try {
@@ -564,6 +684,25 @@ async function confirmRevoke(acc: BossPlayerAccountRow) {
   }
 }
 
+async function processRefund(orderId: string, approve: boolean) {
+  actingId.value = orderId
+  try {
+    // 调用后端API处理退款
+    await bossDeskApi.processRefund(orderId, approve)
+    
+    // 刷新数据
+    await loadAll()
+    
+    // 显示成功消息
+    alert(approve ? '退款申请已批准' : '退款申请已拒绝')
+  } catch (e) {
+    console.error(e)
+    alert(e instanceof Error ? e.message : '操作失败')
+  } finally {
+    actingId.value = null
+  }
+}
+
 onMounted(() => {
   void loadAll()
 })
@@ -572,12 +711,13 @@ onMounted(() => {
 <style scoped>
 .boss-desk-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #0f172a 0%, #111827 45%);
-  color: #e5e7eb;
+  background-color: var(--m-bg);
+  color: var(--m-text);
+  font-family: var(--m-font-body);
 }
 
 .bd-main {
-  padding: 2rem 0 4rem;
+  padding: 2.5rem 0 4rem;
 }
 
 .container {
@@ -589,77 +729,168 @@ onMounted(() => {
 .bd-hero {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 2rem;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1.25rem;
+  margin-bottom: 2rem;
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
+  padding: 2rem;
+  border: 1px solid var(--m-border);
+  position: relative;
+  overflow: hidden;
 }
 
-.bd-badge {
+.bd-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
+}
+
+.bd-hero:hover::before {
+  transform: scaleY(1);
+}
+
+.welcome {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.welcome-text {
+  flex: 1;
+  min-width: 300px;
+}
+
+.welcome-greeting {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #fbbf24;
-  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--m-accent);
+  margin-bottom: 0.75rem;
 }
 
-.bd-hero h1 {
+.welcome-title {
   font-size: 1.75rem;
   font-weight: 700;
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.75rem;
+  color: var(--m-text);
 }
 
-.bd-hero p {
+.welcome-date {
   margin: 0;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   max-width: 36rem;
   line-height: 1.5;
 }
 
-.bd-hero-stats {
+.welcome-stats {
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  gap: 1.5rem;
+  background-color: var(--m-bg);
+  border-radius: var(--m-radius-sm);
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--m-border);
 }
 
-.bd-stat {
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(71, 85, 105, 0.5);
-  border-radius: 0.75rem;
-  padding: 0.75rem 1.25rem;
-  min-width: 7rem;
+.stat {
+  text-align: center;
+  min-width: 8rem;
 }
 
-.bd-stat-label {
+.stat-value {
   display: block;
-  font-size: 0.7rem;
-  color: #9ca3af;
-}
-
-.bd-stat-value {
-  font-size: 1.35rem;
+  font-size: 1.5rem;
   font-weight: 700;
+  color: var(--m-text);
 }
 
-.bd-warn {
-  color: #fbbf24;
+.stat-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--m-text-secondary);
+  margin-top: 0.25rem;
 }
 
-.bd-ok {
-  color: #34d399;
+.stat-divider {
+  width: 1px;
+  height: 3rem;
+  background-color: var(--m-border);
 }
 
 .bd-hint {
   font-size: 0.85rem;
-  color: #94a3b8;
-  margin: 0 0 1.5rem;
+  color: var(--m-text-secondary);
+  margin: 0 0 2rem;
   line-height: 1.5;
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius-sm);
+  padding: 1rem;
+  border: 1px solid var(--m-border);
 }
 
 .bd-section {
   margin-bottom: 2.5rem;
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
+  padding: 1.5rem;
+  border: 1px solid var(--m-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.bd-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
+}
+
+.bd-section:hover::before {
+  transform: scaleY(1);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--m-text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.5), transparent);
 }
 
 .bd-section-head {
@@ -673,23 +904,33 @@ onMounted(() => {
   margin: 0;
   font-size: 1.15rem;
   font-weight: 600;
+  color: var(--m-text);
 }
 
 .bd-sub {
   font-size: 0.85rem;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   margin: 0 0 1rem;
   line-height: 1.5;
 }
 
 .bd-refresh {
-  background: rgba(51, 65, 85, 0.6);
-  border: 1px solid rgba(100, 116, 139, 0.5);
-  color: #e2e8f0;
-  border-radius: 0.5rem;
-  padding: 0.35rem 0.75rem;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border);
+  color: var(--m-text);
+  border-radius: var(--m-radius-sm);
+  padding: 0.5rem 0.75rem;
   cursor: pointer;
   font-size: 0.8rem;
+  transition: all var(--m-transition);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bd-refresh:hover:not(:disabled) {
+  border-color: var(--m-accent);
+  color: var(--m-accent);
 }
 
 .bd-refresh:disabled {
@@ -701,7 +942,7 @@ onMounted(() => {
 .bd-empty {
   text-align: center;
   padding: 2rem;
-  color: #64748b;
+  color: var(--m-text-secondary);
 }
 
 .bd-empty.subtle {
@@ -723,10 +964,35 @@ onMounted(() => {
   gap: 1rem;
   justify-content: space-between;
   align-items: flex-start;
-  background: rgba(30, 41, 59, 0.85);
-  border: 1px solid rgba(71, 85, 105, 0.45);
-  border-radius: 0.75rem;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
   padding: 1rem 1.15rem;
+  transition: all var(--m-transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.bd-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
+}
+
+.bd-card:hover::before {
+  transform: scaleY(1);
+}
+
+.bd-card:hover {
+  border-color: var(--m-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .bd-card-muted {
@@ -750,7 +1016,7 @@ onMounted(() => {
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
-  background: rgba(251, 191, 36, 0.2);
+  background-color: rgba(251, 191, 36, 0.2);
   color: #fbbf24;
   padding: 0.15rem 0.45rem;
   border-radius: 0.25rem;
@@ -758,7 +1024,7 @@ onMounted(() => {
 
 .bd-status-pill {
   font-size: 0.7rem;
-  background: rgba(99, 102, 241, 0.2);
+  background-color: rgba(99, 102, 241, 0.2);
   color: #a5b4fc;
   padding: 0.15rem 0.5rem;
   border-radius: 0.25rem;
@@ -766,11 +1032,12 @@ onMounted(() => {
 
 .bd-game {
   font-weight: 600;
+  color: var(--m-text);
 }
 
 .bd-type {
   font-size: 0.85rem;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
 }
 
 .bd-meta {
@@ -778,13 +1045,13 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 0.75rem 1.25rem;
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--m-text-secondary);
 }
 
 .bd-note {
   margin: 0.65rem 0 0;
   font-size: 0.8rem;
-  color: #cbd5e1;
+  color: var(--m-text);
   line-height: 1.45;
 }
 
@@ -796,12 +1063,32 @@ onMounted(() => {
 }
 
 .bd-btn {
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
   padding: 0.45rem 0.9rem;
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 1px solid var(--m-border);
+  transition: all var(--m-transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.bd-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
+}
+
+.bd-btn:hover::before {
+  transform: scaleY(1);
 }
 
 .bd-btn:disabled {
@@ -810,25 +1097,48 @@ onMounted(() => {
 }
 
 .bd-btn-primary {
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
-  color: #fff;
+  background-color: var(--m-accent);
+  color: white;
+  border-color: var(--m-accent);
+}
+
+.bd-btn-primary:hover:not(:disabled) {
+  background-color: var(--m-accent-hover);
+  border-color: var(--m-accent-hover);
 }
 
 .bd-btn-ghost {
-  background: transparent;
-  border-color: rgba(148, 163, 184, 0.45);
-  color: #e2e8f0;
+  background-color: var(--m-bg);
+  border-color: var(--m-border);
+  color: var(--m-text);
+}
+
+.bd-btn-ghost:hover:not(:disabled) {
+  border-color: var(--m-accent);
+  color: var(--m-accent);
 }
 
 .bd-btn-danger {
-  background: rgba(239, 68, 68, 0.2);
+  background-color: rgba(239, 68, 68, 0.1);
   border-color: rgba(248, 113, 113, 0.5);
   color: #fecaca;
 }
 
+.bd-btn-danger:hover:not(:disabled) {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #fecaca;
+}
+
 .bd-btn-warn {
-  background: rgba(245, 158, 11, 0.15);
+  background-color: rgba(245, 158, 11, 0.15);
   border-color: rgba(251, 191, 36, 0.4);
+  color: #fcd34d;
+}
+
+.bd-btn-warn:hover:not(:disabled) {
+  background-color: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
   color: #fcd34d;
 }
 
@@ -844,33 +1154,97 @@ onMounted(() => {
 }
 
 .bd-modal {
-  background: #1e293b;
-  border: 1px solid rgba(71, 85, 105, 0.6);
-  border-radius: 0.75rem;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius);
   padding: 1.25rem;
   width: 100%;
   max-width: 420px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bd-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
+}
+
+.bd-modal:hover::before {
+  transform: scaleY(1);
 }
 
 .bd-modal-wide {
   max-width: 480px;
 }
 
+.bd-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--m-border);
+}
+
+.bd-modal-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--m-text);
+}
+
+.bd-modal-close {
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border);
+  color: var(--m-text-secondary);
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--m-radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--m-transition);
+}
+
+.bd-modal-close:hover {
+  border-color: #ef4444;
+  color: #fecaca;
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
 .bd-modal h3 {
   margin: 0 0 1rem;
   font-size: 1.05rem;
+  color: var(--m-text);
 }
 
 .bd-textarea,
 .bd-select {
   width: 100%;
   margin-bottom: 0.75rem;
-  background: #0f172a;
-  border: 1px solid rgba(71, 85, 105, 0.7);
-  border-radius: 0.5rem;
-  color: #e2e8f0;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  color: var(--m-text);
   padding: 0.5rem 0.65rem;
   font-size: 0.85rem;
+  transition: border-color var(--m-transition);
+}
+
+.bd-textarea:focus,
+.bd-select:focus {
+  outline: none;
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
 }
 
 .bd-textarea {
@@ -881,7 +1255,7 @@ onMounted(() => {
 .bd-label {
   display: block;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   margin-bottom: 0.35rem;
 }
 
@@ -896,53 +1270,77 @@ onMounted(() => {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  border-bottom: 1px solid rgba(71, 85, 105, 0.5);
+  border-bottom: 1px solid var(--m-border);
   padding-bottom: 0.5rem;
 }
 
 .bd-tab {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border);
+  color: var(--m-text-secondary);
   padding: 0.5rem 1rem;
   cursor: pointer;
-  border-radius: 0.25rem;
+  border-radius: var(--m-radius-sm);
   font-weight: 600;
-  transition: all 0.2s;
+  transition: all var(--m-transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.bd-tab::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
+}
+
+.bd-tab:hover::before {
+  transform: scaleY(1);
 }
 
 .bd-tab:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #e2e8f0;
+  border-color: var(--m-accent);
+  color: var(--m-accent);
 }
 
 .bd-tab.active {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background-color: var(--m-accent-light);
+  border-color: var(--m-accent);
+  color: var(--m-accent);
+}
+
+.bd-tab.active::before {
+  transform: scaleY(1);
 }
 
 .bd-badge-danger {
   font-size: 0.65rem;
   font-weight: 700;
-  background: rgba(239, 68, 68, 0.2);
+  background-color: rgba(239, 68, 68, 0.2);
   color: #f87171;
   padding: 0.15rem 0.45rem;
   border-radius: 0.25rem;
 }
 
-.v-pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-.v-appealed { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
-.v-resolved { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.v-pending { background-color: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.v-appealed { background-color: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+.v-resolved { background-color: rgba(16, 185, 129, 0.2); color: #34d399; }
 
 .v-type {
-  background: rgba(239, 68, 68, 0.15);
+  background-color: rgba(239, 68, 68, 0.15);
   color: #fca5a5;
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .appeal-box {
-  background: rgba(139, 92, 246, 0.1);
-  border-left: 3px solid #8b5cf6;
+  background-color: rgba(6, 182, 212, 0.1);
+  border-left: 3px solid #06b6d4;
   padding: 0.5rem 0.75rem;
   border-radius: 0 0.25rem 0.25rem 0;
   margin-top: 0.5rem;
@@ -950,11 +1348,11 @@ onMounted(() => {
 
 .appeal-box p {
   margin: 0.25rem 0 0;
-  color: #e2e8f0;
+  color: var(--m-text);
 }
 
 .resolved-box {
-  background: rgba(16, 185, 129, 0.1);
+  background-color: rgba(16, 185, 129, 0.1);
   border-left: 3px solid #10b981;
   padding: 0.5rem 0.75rem;
   border-radius: 0 0.25rem 0.25rem 0;
@@ -962,4 +1360,71 @@ onMounted(() => {
 }
 
 .mb-2 { margin-bottom: 0.5rem; }
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .welcome {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .welcome-stats {
+    width: 100%;
+    justify-content: space-around;
+  }
+  
+  .bd-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .bd-card-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .bd-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  
+  .bd-tab {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .bd-hero {
+    padding: 1.5rem;
+  }
+  
+  .welcome-title {
+    font-size: 1.5rem;
+  }
+  
+  .welcome-stats {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  .stat-divider {
+    width: 100%;
+    height: 1px;
+  }
+  
+  .bd-section {
+    padding: 1.25rem;
+  }
+  
+  .bd-card-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .bd-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
 </style>

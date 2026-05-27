@@ -1,122 +1,116 @@
+<!--
+  【登录页面】用户登录入口
+  功能：账号密码登录、记住我、密码显隐切换
+  交互：鼠标跟随聚光灯效果 + 光球动画背景
+-->
 <template>
-  <div
-    class="login-container"
-    :style="pointerStyle"
-    @mousemove="onPointerMove"
-    @mouseleave="onPointerLeave"
-  >
-    <!-- 背景层：渐变 + 微网格 + 光晕，不抢表单焦点 -->
-    <div class="auth-backdrop" aria-hidden="true" />
+  <div class="login-page" ref="pageRef">
+    <div class="bg-container" ref="bgContainer">
+      <div class="gradient-layer"></div>
 
-    <!-- 注册成功提示 -->
-    <div v-if="showRegisterSuccess" class="success-toast" role="alert">
-      注册成功，请登录
+      <div class="light-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+      </div>
+
+      <div class="spotlight" :style="spotlightStyle"></div>
+
+      <div class="cursor-follower" :style="cursorStyle">
+        <span class="cursor-ring"></span>
+        <span class="cursor-dot"></span>
+      </div>
     </div>
 
-    <div class="auth-shell">
-    <div class="login-card">
-      <header class="auth-header">
-        <h1 class="auth-title">栗帽游戏服务平台</h1>
-        <p class="auth-subtitle">专业护航服务 · 精英玩家社区</p>
-      </header>
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-header">
+          <span class="login-brand">DELTA</span>
+          <h1 class="login-title">欢迎回来</h1>
+          <p class="login-subtitle">登录到您的账户</p>
+        </div>
 
-      <div class="form-container">
+        <div v-if="showRegisterSuccess" class="success-toast">
+          注册成功，请登录
+        </div>
+
         <form @submit.prevent="handleLogin" class="login-form">
-          <div class="input-group">
-            <label for="username" class="input-label">账号</label>
+          <div class="form-group">
+            <label for="username" class="form-label">
+              <i class="fa fa-user"></i> 账号
+            </label>
             <div class="input-wrapper">
-              <span class="input-icon" aria-hidden="true">
-                <i class="fa fa-user"></i>
-              </span>
+              <i class="fa fa-user input-icon"></i>
               <input
                 type="text"
                 id="username"
                 v-model="form.username"
-                :class="{ 'error-input': errors.username, 'normal-input': !errors.username }"
-                class="text-input"
-                placeholder="请输入用户名或邮箱"
+                class="form-input"
+                :class="{ 'has-error': errors.username }"
+                placeholder="用户名或邮箱"
                 required
                 @input="clearError('username')"
               />
             </div>
-            <p v-if="errors.username" class="error-message">{{ errors.username }}</p>
+            <p v-if="errors.username" class="error-text">{{ errors.username }}</p>
           </div>
 
-          <div class="input-group">
-            <div class="password-header">
-              <label for="password" class="input-label">密码</label>
-              <a href="/forgot-password" class="forgot-password">忘记密码?</a>
-            </div>
+          <div class="form-group">
+            <label for="password" class="form-label">
+              <i class="fa fa-lock"></i> 密码
+            </label>
             <div class="input-wrapper">
-              <span class="input-icon" aria-hidden="true">
-                <i class="fa fa-lock"></i>
-              </span>
+              <i class="fa fa-lock input-icon"></i>
               <input
                 :type="showPassword ? 'text' : 'password'"
                 id="password"
                 v-model="form.password"
-                :class="{ 'error-input': errors.password, 'normal-input': !errors.password }"
-                class="text-input password-input"
-                placeholder="请输入密码"
+                class="form-input"
+                :class="{ 'has-error': errors.password }"
+                placeholder="输入密码"
                 required
                 @input="clearError('password')"
               />
-              <button
-                type="button"
-                class="password-toggle"
-                aria-label="显示/隐藏密码"
-                @click="showPassword = !showPassword"
-              >
+              <button type="button" class="password-toggle" @click="showPassword = !showPassword" tabindex="-1">
                 <i :class="showPassword ? 'fa fa-eye-slash' : 'fa fa-eye'"></i>
               </button>
             </div>
-            <p v-if="errors.password" class="error-message">{{ errors.password }}</p>
+            <p v-if="errors.password" class="error-text">{{ errors.password }}</p>
           </div>
 
-          <div class="remember-me-group">
-            <label class="remember-me-label" for="rememberMe">
-              <input
-                id="rememberMe"
-                v-model="form.rememberMe"
-                type="checkbox"
-                class="remember-checkbox"
-              />
-              <span class="remember-me-text">记住我</span>
+          <div class="form-row">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="form.rememberMe" class="checkbox-input" />
+              <span>记住我</span>
             </label>
+            <a href="/forgot-password" class="link">忘记密码？</a>
           </div>
 
-          <button
-            type="submit"
-            class="login-button"
-            :disabled="isLoading"
-            :aria-disabled="isLoading"
-          >
-            <span v-if="!isLoading" class="button-text">登录账号</span>
-            <span v-else class="loading-text">
-              <i class="fa fa-spinner fa-spin"></i> 登录中...
-            </span>
+          <button type="submit" class="submit-btn" :disabled="isLoading">
+            <span v-if="!isLoading">登录</span>
+            <span v-else>登录中...</span>
           </button>
         </form>
 
-        <p v-if="showDemoAccountHint" class="login-demo-hint">
-          演示账号：顾客 <strong>XiaoLiMao</strong>、打手 <strong>DaShou_YeXi</strong>（或邮箱 dashou_yexi@demo.delta）、BOSS
-          <strong>BOSS_Delta</strong>（或 boss@demo.delta），密码均为 <strong>123456</strong>
+        <p v-if="showDemoAccountHint" class="demo-hint">
+          演示账号：顾客 <strong>XiaoLiMao</strong>、打手 <strong>DaShou_YeXi</strong>、BOSS <strong>BOSS_Delta</strong>，密码均为 <strong>123456</strong>
         </p>
 
-        <p class="register-link">
-          还没有账号?
-          <a href="/register" class="register-action" aria-label="前往注册页面">立即注册</a>
+        <p class="register-prompt">
+          还没有账号？<a href="/register" class="link">立即注册</a>
         </p>
       </div>
-    </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+/*
+ * 登录模块 - 核心业务逻辑
+ * 流程：表单验证 → 调用 authApi.login() → 存储 Token → 拉取用户画像 → 跳转首页
+ */
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useAuthPointerMotion } from '../composables/useAuthPointerMotion'
 import { authApi } from '../api/authApi'
 import { setAuthToken, setAuthUser } from '../api/token'
 import { useUserStore } from '../stores/user'
@@ -124,19 +118,66 @@ import { useNotificationStore } from '../stores/notifications'
 
 const router = useRouter()
 const route = useRoute()
+const bgContainer = ref<HTMLElement | null>(null)
+const pageRef = ref<HTMLElement | null>(null)
 
-const { onPointerMove, onPointerLeave, pointerStyle } = useAuthPointerMotion()
+// 鼠标位置跟踪 - 用于聚光灯跟随效果
+const mousePos = ref({ x: 0, y: 0 })
+const cursorPos = ref({ x: 0, y: 0 })
+
+let orbAnimationFrame: number
 
 const showRegisterSuccess = ref(false)
 
 onMounted(() => {
+  // 注册成功后跳转至此，展示成功提示
   if (route.query.registered === 'true') {
     showRegisterSuccess.value = true
     setTimeout(() => {
       showRegisterSuccess.value = false
     }, 3000)
   }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    mousePos.value = { x: e.clientX, y: e.clientY }
+    cursorPos.value = { x: e.clientX, y: e.clientY }
+  }
+
+  window.addEventListener('mousemove', handleMouseMove)
+
+  // 背景光球漂浮动画
+  const animateOrbs = () => {
+    const time = Date.now() * 0.001
+    const orbs = bgContainer.value?.querySelectorAll('.orb')
+    orbs?.forEach((orb, i) => {
+      const element = orb as HTMLElement
+      const baseX = 20 + i * 30
+      const baseY = 30 + i * 20
+      const offsetX = Math.sin(time * 0.5 + i) * 10
+      const offsetY = Math.cos(time * 0.3 + i * 0.5) * 10
+      element.style.left = `${baseX + offsetX}%`
+      element.style.top = `${baseY + offsetY}%`
+    })
+    orbAnimationFrame = requestAnimationFrame(animateOrbs)
+  }
+
+  animateOrbs()
+
+  onUnmounted(() => {
+    window.removeEventListener('mousemove', handleMouseMove)
+    cancelAnimationFrame(orbAnimationFrame)
+  })
 })
+
+const cursorStyle = computed(() => ({
+  '--cursor-x': `${cursorPos.value.x}px`,
+  '--cursor-y': `${cursorPos.value.y}px`
+}))
+
+const spotlightStyle = computed(() => ({
+  '--spotlight-x': `${mousePos.value.x}px`,
+  '--spotlight-y': `${mousePos.value.y}px`
+}))
 
 const form = reactive({
   username: '',
@@ -159,6 +200,7 @@ const clearError = (field: 'username' | 'password') => {
   errors[field] = ''
 }
 
+// 表单前端验证：非空 + 密码最小长度
 const validateForm = (): boolean => {
   let isValid = true
   errors.username = ''
@@ -180,6 +222,7 @@ const validateForm = (): boolean => {
   return isValid
 }
 
+// 【核心交互】登录处理：验证 → 调用后端 → Token持久化 → 加载用户画像 → 通知刷新 → 跳转
 const handleLogin = async () => {
   if (!validateForm()) {
     const firstErrorField = errors.username ? 'username' : 'password'
@@ -192,9 +235,11 @@ const handleLogin = async () => {
   try {
     const resp = await authApi.login({ username: form.username, password: form.password })
 
+    // 将 Token 和用户基本信息持久化到 localStorage/sessionStorage
     setAuthToken(resp.token, form.rememberMe)
     setAuthUser(resp.user, form.rememberMe)
 
+    // 从服务端拉取完整的用户画像（头像、昵称、权限等级等）
     const userStore = useUserStore()
     try {
       await userStore.loadUserFromServer()
@@ -202,10 +247,12 @@ const handleLogin = async () => {
       /* 兼容仅返回基础 user 的场景 */
     }
 
+    // 预热通知 store
     void useNotificationStore()
       .refreshList()
       .catch(() => {})
 
+    // 登录成功后跳转到目标页（支持 redirect 参数）
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
     router.push(redirect || '/dashboard')
   } catch (error) {
@@ -218,383 +265,390 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.login-container {
-  --auth-surface: #151b22;
-  --auth-border: #2a3441;
-  --auth-muted: #8b949e;
-  --auth-text: #e6edf3;
-  --auth-accent: #3d8bfd;
-  --auth-accent-hover: #2f7ce8;
-  /* 鼠标互动：由 composable 写入，默认 0 */
-  --ptr-x: 0;
-  --ptr-y: 0;
-
-  position: relative;
-  min-height: 100vh;
-  overflow: hidden;
-}
-
-/* 柔光随指针轻微移动，增加层次 */
-.login-container::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    closest-side at calc(50% + var(--ptr-x) * 28vw) calc(45% + var(--ptr-y) * 22vh),
-    rgba(61, 139, 253, 0.14) 0%,
-    transparent 58%
-  );
-  opacity: 0.75;
-  transition: opacity 0.35s ease;
-}
-
-/* 多层背景：冷色战术氛围；视差位移让层与指针反向微动 */
-.auth-backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 90% 70% at 8% 45%, rgba(55, 95, 125, 0.38) 0%, transparent 52%),
-    radial-gradient(ellipse 65% 55% at 92% 78%, rgba(35, 65, 105, 0.32) 0%, transparent 48%),
-    radial-gradient(ellipse 50% 40% at 55% 12%, rgba(61, 139, 253, 0.1) 0%, transparent 45%),
-    linear-gradient(168deg, #070a0f 0%, #0c131c 42%, #0a1018 100%);
-  transform: translate3d(calc(var(--ptr-x) * -14px), calc(var(--ptr-y) * -10px), 0);
-  will-change: transform;
-}
-
-.auth-backdrop::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.55;
-  transform: translate3d(calc(var(--ptr-x) * 8px), calc(var(--ptr-y) * 6px), 0);
-  background-image:
-    repeating-linear-gradient(
-      -18deg,
-      transparent,
-      transparent 11px,
-      rgba(255, 255, 255, 0.022) 11px,
-      rgba(255, 255, 255, 0.022) 12px
-    ),
-    repeating-linear-gradient(
-      72deg,
-      transparent,
-      transparent 48px,
-      rgba(255, 255, 255, 0.018) 48px,
-      rgba(255, 255, 255, 0.018) 49px
-    );
-}
-
-.auth-backdrop::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  transform: translate3d(calc(var(--ptr-x) * -5px), calc(var(--ptr-y) * -4px), 0);
-  background:
-    radial-gradient(ellipse 100% 60% at 70% 35%, rgba(61, 139, 253, 0.07) 0%, transparent 55%),
-    linear-gradient(to top, rgba(0, 0, 0, 0.35) 0%, transparent 38%);
-}
-
-/* 卡片靠右、垂直居中；小屏仍居中 */
-.auth-shell {
-  position: relative;
-  z-index: 1;
+.login-page {
   min-height: 100vh;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 1.5rem clamp(1.25rem, 4vw, 2.5rem);
-  padding-right: clamp(1.5rem, 10vw, 6rem);
-  max-width: 120rem;
-  margin: 0 auto;
-  perspective: 1100px;
+  justify-content: center;
+  background: #FAFAFA;
+  position: relative;
+  overflow: hidden;
+  padding: 2rem 1.5rem;
 }
 
-@media (max-width: 640px) {
-  .auth-shell {
-    justify-content: center;
-    padding-right: clamp(1.25rem, 4vw, 2.5rem);
+.bg-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gradient-layer {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 30%, rgba(37, 99, 235, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 70% 70%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+}
+
+.light-orbs {
+  position: absolute;
+  inset: 0;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.orb-1 {
+  width: 300px;
+  height: 300px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(59, 130, 246, 0.08));
+  left: 20%;
+  top: 30%;
+  animation: float-1 8s ease-in-out infinite;
+}
+
+.orb-2 {
+  width: 250px;
+  height: 250px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(37, 99, 235, 0.06));
+  left: 50%;
+  top: 50%;
+  animation: float-2 10s ease-in-out infinite;
+}
+
+.orb-3 {
+  width: 200px;
+  height: 200px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(59, 130, 246, 0.05));
+  left: 70%;
+  top: 20%;
+  animation: float-3 12s ease-in-out infinite;
+}
+
+@keyframes float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -20px) scale(1.05); }
+}
+
+@keyframes float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-25px, 30px) scale(1.08); }
+}
+
+@keyframes float-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20px, 25px) scale(1.03); }
+}
+
+.spotlight {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    400px circle at var(--spotlight-x, 50%) var(--spotlight-y, 50%),
+    rgba(37, 99, 235, 0.08) 0%,
+    rgba(37, 99, 235, 0.04) 30%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.cursor-follower {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 50px;
+  height: 50px;
+  pointer-events: none;
+  transform: translate(calc(var(--cursor-x) - 25px), calc(var(--cursor-y) - 25px));
+  z-index: 1000;
+}
+
+.cursor-ring {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--m-accent);
+  border-radius: 50%;
+  opacity: 0.6;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+.cursor-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  background: var(--m-accent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.8;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
   }
 }
 
-.success-toast {
-  position: fixed;
-  top: 1.25rem;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #238636;
-  color: #fff;
-  padding: 0.6rem 1.1rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  z-index: 50;
-  animation: fadeInOut 3s forwards;
+.login-container {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 400px;
 }
 
 .login-card {
-  width: 100%;
-  max-width: 26rem;
-  background: var(--auth-surface);
-  border: 1px solid var(--auth-border);
-  border-radius: 8px;
-  overflow: hidden;
-  transform: translate3d(calc(var(--ptr-x) * 10px), calc(var(--ptr-y) * 6px), 0)
-    rotateX(calc(var(--ptr-y) * -2.5deg)) rotateY(calc(var(--ptr-x) * 2.5deg));
-  transform-style: preserve-3d;
-  transition: transform 0.22s ease-out;
-  will-change: transform;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 20px;
+  padding: 2.5rem 2rem;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.04),
+    0 10px 15px -3px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.02);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .login-container::after {
-    opacity: 0;
-  }
-
-  .auth-backdrop,
-  .auth-backdrop::before,
-  .auth-backdrop::after,
-  .login-card {
-    transform: none !important;
-  }
+.login-header {
+  text-align: center;
+  margin-bottom: 2rem;
 }
 
-.auth-header {
-  padding: 1.5rem 1.5rem 1rem;
-  border-bottom: 1px solid var(--auth-border);
+.login-brand {
+  font-family: var(--m-font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--m-accent);
+  text-transform: uppercase;
 }
 
-.auth-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--auth-text);
-  letter-spacing: 0.02em;
-  line-height: 1.35;
-}
-
-.auth-subtitle {
-  margin-top: 0.35rem;
-  font-size: 0.8125rem;
-  color: var(--auth-muted);
+.login-title {
+  font-family: var(--m-font-display);
+  font-size: 1.75rem;
   font-weight: 400;
-  line-height: 1.45;
+  color: var(--m-text);
+  margin-top: 0.75rem;
+  letter-spacing: -0.01em;
 }
 
-.form-container {
-  padding: 1.25rem 1.5rem 1.5rem;
+.login-subtitle {
+  font-size: 0.9rem;
+  color: var(--m-text-muted);
+  margin-top: 0.5rem;
+}
+
+.success-toast {
+  background: var(--m-success);
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: var(--m-radius-sm);
+  font-size: 0.875rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  animation: fadeInOut 3s forwards;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
-.input-group {
+.form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 
-.input-label {
-  font-size: 0.8125rem;
-  color: var(--auth-muted);
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--m-text);
 }
 
-.password-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.forgot-password {
-  font-size: 0.75rem;
-  color: var(--auth-accent);
-  text-decoration: none;
-}
-
-.forgot-password:hover {
-  text-decoration: underline;
+.form-label i {
+  margin-right: 0.35rem;
+  color: var(--m-accent);
 }
 
 .input-wrapper {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .input-icon {
   position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6e7681;
-  font-size: 0.95rem;
+  left: 0.875rem;
+  color: var(--m-text-muted);
+  font-size: 0.875rem;
   pointer-events: none;
+  transition: color var(--m-transition);
 }
 
-.text-input {
+.form-input:focus ~ .input-icon,
+.input-wrapper:focus-within .input-icon {
+  color: var(--m-accent);
+}
+
+.form-input {
   width: 100%;
-  padding: 0.65rem 0.75rem 0.65rem 2.35rem;
-  border-radius: 6px;
-  border: 1px solid var(--auth-border);
-  background: #0d1117;
-  color: var(--auth-text);
+  padding: 0.875rem 1rem 0.875rem 2.5rem;
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
   font-size: 0.9375rem;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.password-input {
-  padding-right: 2.5rem;
-}
-
-.text-input::placeholder {
-  color: #6e7681;
-}
-
-.normal-input:focus {
-  border-color: var(--auth-accent);
-}
-
-.error-input {
-  border-color: #f85149;
-}
-
-.error-input:focus {
-  border-color: #f85149;
+  color: var(--m-text);
+  background: white;
+  transition: all var(--m-transition);
 }
 
 .password-toggle {
   position: absolute;
   right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
   background: none;
   border: none;
-  color: #6e7681;
+  color: var(--m-text-muted);
   cursor: pointer;
-  padding: 0.25rem;
-  font-size: 0.95rem;
+  padding: 0.375rem;
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--m-transition);
 }
 
 .password-toggle:hover {
-  color: var(--auth-muted);
+  color: var(--m-accent);
 }
 
-.error-message {
-  color: #f85149;
-  font-size: 0.75rem;
+.form-input:focus {
+  outline: none;
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
+}
+
+.form-input::placeholder {
+  color: var(--m-text-muted);
+}
+
+.form-input.has-error {
+  border-color: var(--m-danger);
+}
+
+.error-text {
+  font-size: 0.8125rem;
+  color: var(--m-danger);
   margin: 0;
 }
 
-.remember-me-group {
-  padding-top: 0.15rem;
+.form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.remember-me-label {
-  display: inline-flex;
+.checkbox-label {
+  display: flex;
   align-items: center;
   gap: 0.5rem;
-  cursor: pointer;
-  user-select: none;
-}
-
-.remember-checkbox {
-  width: 0.95rem;
-  height: 0.95rem;
-  accent-color: var(--auth-accent);
+  font-size: 0.875rem;
+  color: var(--m-text-secondary);
   cursor: pointer;
 }
 
-.remember-me-text {
-  font-size: 0.8125rem;
-  color: var(--auth-muted);
+.checkbox-input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--m-accent);
 }
 
-.login-button {
-  margin-top: 0.25rem;
+.link {
+  font-size: 0.875rem;
+  color: var(--m-accent);
+  transition: color var(--m-transition);
+}
+
+.link:hover {
+  color: var(--m-accent-hover);
+}
+
+.submit-btn {
   width: 100%;
-  padding: 0.65rem 1rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
   border: none;
-  border-radius: 6px;
-  background: var(--auth-accent);
-  color: #fff;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.login-button:hover:not(:disabled) {
-  background: var(--auth-accent-hover);
-}
-
-.login-button:focus-visible {
-  outline: 2px solid var(--auth-accent);
-  outline-offset: 2px;
-}
-
-.login-button:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.button-text,
-.loading-text {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-}
-
-.login-demo-hint {
-  margin-top: 0.85rem;
-  font-size: 0.7rem;
-  line-height: 1.5;
-  color: #6e7681;
-  text-align: center;
-}
-
-.login-demo-hint strong {
-  color: #8b949e;
+  border-radius: 12px;
+  font-size: 0.9rem;
   font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 0.5rem;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
 }
 
-.register-link {
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.demo-hint {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--m-bg-tertiary);
+  border-radius: var(--m-radius-sm);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--m-text-muted);
   text-align: center;
-  font-size: 0.8125rem;
-  color: var(--auth-muted);
-  margin: 1rem 0 0;
 }
 
-.register-action {
-  margin-left: 0.35rem;
-  color: var(--auth-accent);
-  text-decoration: none;
+.demo-hint strong {
+  color: var(--m-text-secondary);
   font-weight: 500;
 }
 
-.register-action:hover {
-  text-decoration: underline;
+.register-prompt {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--m-text-muted);
+  margin-top: 1.5rem;
 }
 
 @keyframes fadeInOut {
   0% {
     opacity: 0;
-    transform: translate(-50%, -6px);
+    transform: translateY(-4px);
   }
   12% {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translateY(0);
   }
   88% {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translateY(0);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -6px);
+    transform: translateY(-4px);
   }
 }
 </style>

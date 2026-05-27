@@ -16,10 +16,19 @@ import GameMap from '../views/GameMap.vue'
 import PlayerDesk from '../views/PlayerDesk.vue'
 import BossDesk from '../views/BossDesk.vue'
 import JoinUs from '../views/JoinUs.vue'
+import AdminTransactions from '../views/AdminTransactions.vue'
+import DataStatistics from '../views/DataStatistics.vue'
+import Wallet from '../views/Wallet.vue'
+import AdminCoinManagement from '../views/AdminCoinManagement.vue'
 import { getAuthToken } from '../api/token'
 import { getEffectiveUserLevel } from '../utils/authLevel'
 
-// 路由规则
+// ============================================================
+// 【路由配置】栗帽游戏服务平台 - 前端路由规则
+// 功能：定义页面路由映射、权限校验、页面标题
+// 权限体系：3级角色 - 顾客(0) | 打手(1) | Boss管理员(2)
+// 交互：路由跳转前自动校验登录态与角色权限
+// ============================================================
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
@@ -59,7 +68,7 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       title: ' escort delta - 栗帽游戏服务平台',
       requiresAuth: true,
-      customerOnly: true
+      customerOnly: true // 仅顾客可见
     }
   },
   {
@@ -69,7 +78,7 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       title: '打手大厅 - 栗帽游戏服务平台',
       requiresAuth: true,
-      customerOnly: true
+      customerOnly: true // 仅顾客可见：浏览打手列表、预约打手
     }
   },
   {
@@ -79,7 +88,7 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       title: '加入我们 - 栗帽游戏服务平台',
       requiresAuth: true,
-      customerOnly: true
+      customerOnly: true // 仅顾客可见：申请成为打手
     }
   },
   {
@@ -89,7 +98,7 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       title: '打手工作台 - 栗帽游戏服务平台',
       requiresAuth: true,
-      playerOnly: true
+      playerOnly: true // 仅打手可见：接单、拒单、申请完成
     }
   },
   {
@@ -99,7 +108,46 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       title: 'BOSS 控制台 - 栗帽游戏服务平台',
       requiresAuth: true,
-      minUserLevel: 2
+      minUserLevel: 2 // Boss级别及以上：审核完成、转派订单、退款处理、违规管理、入驻审核
+    }
+  },
+  {
+    path: '/admin/transactions',
+    name: 'AdminTransactions',
+    component: AdminTransactions,
+    meta: {
+      title: '流水管理 - 栗帽游戏服务平台',
+      requiresAuth: true,
+      minUserLevel: 2 // Boss级别
+    }
+  },
+  {
+    path: '/admin/statistics',
+    name: 'DataStatistics',
+    component: DataStatistics,
+    meta: {
+      title: '数据统计 - 栗帽游戏服务平台',
+      requiresAuth: true,
+      minUserLevel: 2 // Boss级别：平台运营数据总览
+    }
+  },
+  {
+    path: '/wallet',
+    name: 'Wallet',
+    component: Wallet,
+    meta: {
+      title: '我的钱包 - 栗帽游戏服务平台',
+      requiresAuth: true // 所有角色可见：栗币充值、交易流水
+    }
+  },
+  {
+    path: '/admin/coins',
+    name: 'AdminCoinManagement',
+    component: AdminCoinManagement,
+    meta: {
+      title: '栗币管理 - 栗帽游戏服务平台',
+      requiresAuth: true,
+      minUserLevel: 2 // Boss级别：管理用户栗币余额
     }
   },
   {

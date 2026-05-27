@@ -1,7 +1,9 @@
 export const API_ENDPOINTS = {
   auth: {
     login: '/auth/login',
-    register: '/auth/register'
+    register: '/auth/register',
+    refresh: '/auth/refresh',
+    logout: '/auth/logout'
   },
   orders: {
     list: '/orders',
@@ -71,10 +73,39 @@ export const API_ENDPOINTS = {
       `/boss-desk/join-applications/${encodeURIComponent(applicationId)}/reject`,
     playerAccounts: '/boss-desk/player-accounts',
     revokePlayer: (userId: string) =>
-      `/boss-desk/player-accounts/${encodeURIComponent(userId)}/revoke`
+      `/boss-desk/player-accounts/${encodeURIComponent(userId)}/revoke`,
+    refundPending: '/boss-desk/orders/refund-pending',
+    processRefund: (orderId: string) =>
+      `/boss-desk/orders/${encodeURIComponent(orderId)}/refund/process`
   },
   playerJoin: {
     submit: '/player-join-applications',
     me: '/player-join-applications/me'
+  },
+  violation: {
+    my: '/api/violation/my',
+    appeal: (violationId: string) => `/api/violation/appeal/${encodeURIComponent(violationId)}`,
+    bossPending: '/api/violation/boss/pending',
+    bossAppealed: '/api/violation/boss/appealed',
+    bossAll: '/api/violation/boss/all',
+    bossHandle: (violationId: string) => `/api/violation/boss/handle/${encodeURIComponent(violationId)}`
+  },
+  transactions: {
+    list: '/transactions',
+    create: '/transactions',
+    detail: (id: number) => `/transactions/${id}`,
+    delete: (id: number) => `/transactions/${id}`,
+    summary: '/transactions/summary',
+    daily: '/transactions/daily'
+  },
+  statistics: {
+    overview: '/statistics/overview',
+    ordersByStatus: '/statistics/orders-by-status',
+    usersByLevel: '/statistics/users-by-level'
+  },
+  wallet: {
+    info: '/wallet',
+    recharge: '/wallet/recharge',
+    adminAdjust: '/wallet/admin/adjust'
   }
 } as const

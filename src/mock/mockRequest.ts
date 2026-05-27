@@ -1,5 +1,6 @@
 import type { ApiRequestOptions } from '../api/request'
 import { mockDb } from './mockDb'
+import { getAuthUser } from '../api/token'
 import type { LoginResponse } from '../types/auth'
 import type { Order } from '../types/order'
 import type { Profile } from '../types/profile'
@@ -34,7 +35,7 @@ const MOCK_HALL_PLAYERS: Record<string, unknown>[] = [
     avatar: 'https://picsum.photos/id/1025/300/300',
     rank: 'master',
     rankText: '大师',
-    rankColor: '#8b5cf6',
+    rankColor: '#06b6d4',
     skills: ['突击攻坚', '装备获取', '快速推进'],
     winRate: 78,
     completedOrders: 987,
@@ -79,7 +80,7 @@ const MOCK_HALL_PLAYERS: Record<string, unknown>[] = [
     avatar: 'https://picsum.photos/id/1084/300/300',
     rank: 'master',
     rankText: '大师',
-    rankColor: '#8b5cf6',
+    rankColor: '#06b6d4',
     skills: ['突击攻坚', '近战格斗', '快速清场'],
     winRate: 76,
     completedOrders: 632,
@@ -650,6 +651,209 @@ export async function mockRequest<T>(options: ApiRequestOptions): Promise<T> {
       tag: '战术提示'
     }
     return briefing as T
+  }
+
+  // —— 流水管理（仅 BOSS 可操作）——
+  const assertBossTransaction = () => {
+    if (mockDb.profile.getUserLevel() < 2) {
+      throw new Error('Mock: 流水管理需要 BOSS 权限')
+    }
+  }
+
+  if (method === 'GET' && path === '/transactions') {
+    assertBossTransaction()
+    return mockDb.transactions.list() as unknown as T
+  }
+
+  if (method === 'POST' && path === '/transactions') {
+    assertBossTransaction()
+    const body = assertBody<{ type: string; amount: number; paymentMethod?: string; description?: string; orderId?: number }>(options.body)
+    if (!body.type || !['INCOME', 'EXPENSE'].includes(body.type)) {
+      throw new Error('Mock: 类型必须是 INCOME 或 EXPENSE')
+    }
+    if (!body.amount || body.amount <= 0) {
+      throw new Error('Mock: 金额必须大于0')
+    }
+    const res = mockDb.transactions.create(body)
+    return res as unknown as T
+  }
+
+  if (method === 'DELETE' && path.startsWith('/transactions/') && !path.includes('/summary') && !path.includes('/daily')) {
+    assertBossTransaction()
+    const id = Number(path.split('/')[2])
+    mockDb.transactions.delete(id)
+    return undefined as T
+  }
+
+  if (method === 'GET' && path === '/transactions/summary') {
+    assertBossTransaction()
+    return mockDb.transactions.summary() as unknown as T
+  }
+
+  if (method === 'GET' && path === '/transactions/daily') {
+    assertBossTransaction()
+    return mockDb.transactions.dailyStats() as unknown as T
+  }
+
+  if (method === 'GET' && path.startsWith('/transactions/') && !path.includes('/summary') && !path.includes('/daily')) {
+    assertBossTransaction()
+    const id = Number(path.split('/')[2])
+    const item = mockDb.transactions.list().find((d: Record<string, unknown>) => Number(d.id) === id)
+    if (!item) throw new Error(`Mock: 流水 #${id} 不存在`)
+    return item as unknown as T
+  }
+
+  // —— 数据统计 ——
+  if (method === 'GET' && path === '/statistics/overview') {
+    assertBossMock()
+    const orders = mockDb.orders.list() as unknown as Record<string, unknown>[]
+    const income = mockDb.transactions.summary().totalIncome
+    const expense = mockDb.transactions.summary().totalExpense
+    return {
+      totalOrders: orders.length,
+      completedOrders: orders.filter((o) => o.status === 'completed').length,
+      pendingOrders: orders.filter((o) => o.status === 'pending').length,
+      inProgressOrders: orders.filter((o) => o.status === 'ongoing').length,
+      cancelledOrders: orders.filter((o) => o.status === 'cancelled').length,
+      totalUsers: 6,
+      customerCount: 4,
+      playerCount: 1,
+      totalIncome: income,
+      totalExpense: expense,
+      netRevenue: income - expense
+    } as T
+  }
+
+  if (method === 'GET' && path === '/statistics/orders-by-status') {
+    assertBossMock()
+    const orders = mockDb.orders.list()
+    const countByStatus = (status: string) => (orders as unknown as Record<string, unknown>[]).filter((o) => o.status === status).length
+    return [
+      { status: 'PENDING', label: '待接单', count: countByStatus('pending') },
+      { status: 'IN_PROGRESS', label: '进行中', count: countByStatus('ongoing') },
+      { status: 'COMPLETION_PENDING', label: '待审核', count: countByStatus('completion_pending') },
+      { status: 'COMPLETED', label: '已完成', count: countByStatus('completed') },
+      { status: 'CANCELLED', label: '已取消', count: countByStatus('cancelled') },
+      { status: 'REFUND_REQUESTED', label: '退款中', count: countByStatus('refund_requested') },
+      { status: 'REFUNDED', label: '已退款', count: countByStatus('refunded') }
+    ] as T
+  }
+
+  if (method === 'GET' && path === '/statistics/users-by-level') {
+    assertBossMock()
+    return [
+      { level: 0, label: '顾客', count: 4 },
+      { level: 1, label: '打手', count: 1 },
+      { level: 2, label: '管理员', count: 1 }
+    ] as T
+  }
+
+  // —— 钱包/栗币 ——
+  function getMockUserId(): number {
+    const userData = getAuthUser()
+    const name = userData?.username || ''
+    if (name === 'BOSS_Delta') return 3
+    if (name === 'DaShou_YeXi') return 2
+    return 1
+  }
+
+  if (method === 'GET' && path === '/wallet') {
+    const uid = getMockUserId()
+    return mockDb.wallet.getInfo(uid) as unknown as T
+  }
+
+  if (method === 'POST' && path === '/wallet/recharge') {
+    const body = assertBody<{ amount: number; description?: string }>(options.body)
+    if (!body.amount || body.amount <= 0) throw new Error('充值金额必须大于0')
+    const uid = getMockUserId()
+    const amountInCents = Math.round(body.amount * 100)
+    return mockDb.wallet.recharge(uid, amountInCents, body.description) as unknown as T
+  }
+
+  if (method === 'POST' && path === '/wallet/admin/adjust') {
+    assertBossMock()
+    const body = assertBody<{ userId: number; amount: number; description?: string }>(options.body)
+    const amountInCents = Math.round(body.amount * 100)
+    return mockDb.wallet.adminAdjust(body.userId, amountInCents, body.description) as unknown as T
+  }
+
+  // —— 违规记录 API（前缀 /api/violation/）——
+  const MOCK_VIOLATIONS: Record<string, unknown>[] = [
+    { id: 1, userId: 1, username: 'XiaoLiMao', type: 'MALICIOUS_REFUND', description: '在订单即将完成时申请退款', status: 'PENDING', relatedId: 'ORD-12345', violationCount: 1, isHighRisk: false, createdAt: new Date(Date.now() - 86400000).toISOString() },
+    { id: 2, userId: 1, username: 'XiaoLiMao', type: 'FAKE_ORDER', description: '1小时内创建超过5个订单', status: 'APPEALED', relatedId: 'ORD-12346', violationCount: 2, isHighRisk: false, createdAt: new Date(Date.now() - 172800000).toISOString(), appealReason: '我是正常操作，不是恶意刷单' },
+    { id: 3, userId: 3, username: 'demo_user', type: 'IMPROPER_SERVICE', description: '服务态度不佳，被用户投诉', status: 'RESOLVED', relatedId: 'ORD-12347', violationCount: 1, isHighRisk: false, createdAt: new Date(Date.now() - 259200000).toISOString(), adminAction: 'WARNING', adminNotes: '已警告' }
+  ]
+  let mockViolations = [...MOCK_VIOLATIONS]
+  let nextViolationId = 10
+
+  if (method === 'GET' && path === '/api/violation/my') {
+    const userData = getAuthUser()
+    const username = userData?.username || ''
+    return mockViolations.filter(v => String(v.username) === username) as unknown as T
+  }
+
+  if (method === 'POST' && path.startsWith('/api/violation/appeal/')) {
+    const id = Number(path.split('/')[4])
+    const body = assertBody<{ reason: string }>(options.body)
+    const v = mockViolations.find(v => v.id === id)
+    if (v) {
+      v.status = 'APPEALED'
+      v.appealReason = body.reason
+    }
+    return { ok: true } as T
+  }
+
+  if (method === 'GET' && path === '/api/violation/boss/pending') {
+    assertBossMock()
+    return mockViolations.filter(v => v.status === 'PENDING') as unknown as T
+  }
+
+  if (method === 'GET' && path === '/api/violation/boss/appealed') {
+    assertBossMock()
+    return mockViolations.filter(v => v.status === 'APPEALED') as unknown as T
+  }
+
+  if (method === 'GET' && path === '/api/violation/boss/all') {
+    assertBossMock()
+    return [...mockViolations] as unknown as T
+  }
+
+  if (method === 'POST' && path.startsWith('/api/violation/boss/handle/')) {
+    assertBossMock()
+    const id = Number(path.split('/')[5])
+    const body = assertBody<{ action: string; notes: string }>(options.body)
+    const v = mockViolations.find(v => v.id === id)
+    if (v) {
+      v.status = 'RESOLVED'
+      v.adminAction = body.action
+      v.adminNotes = body.notes
+    }
+    return { ok: true } as T
+  }
+
+  // —— BossDesk 退款处理（补充，Mock 路由中已有的订单列表将包含退款待处理）——
+  if (method === 'GET' && path === '/boss-desk/orders/refund-pending') {
+    assertBossMock()
+    const allOrders = mockDb.orders.list() as unknown as Record<string, unknown>[]
+    return allOrders.filter(o => String(o.status) === 'refund_requested').map(o => ({
+      ...o,
+      customerUsername: '演示顾客',
+      refundReason: o.refundReason || '用户申请退款'
+    })) as unknown as T
+  }
+
+  if (method === 'POST' && path.includes('/boss-desk/orders/') && path.endsWith('/refund/process')) {
+    assertBossMock()
+    const segs = path.split('/').filter(Boolean)
+    const oid = segs[segs.length - 3] || ''
+    const body = assertBody<{ approve: boolean; adminNote?: string }>(options.body)
+    const orders = mockDb.orders.list() as unknown as Record<string, unknown>[]
+    const order = orders.find(o => String(o.id) === oid)
+    if (order) {
+      order.status = body.approve ? 'refunded' : 'completed'
+      order.statusText = body.approve ? '已退款' : '已完成'
+    }
+    return undefined as T
   }
 
   // 如果未匹配到 mock 路由，直接抛错，方便你继续补齐接口

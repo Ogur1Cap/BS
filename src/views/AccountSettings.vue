@@ -1,3 +1,9 @@
+<!--
+  【账号设置】用户高级配置页面
+  功能：昵称/个性签名/通知偏好/第三方绑定（微信/QQ/微博）
+  交互：修改即时保存 → 同步到全局Store
+  角色：所有登录用户
+-->
 <template>
   <div class="account-settings-page">
     <!-- 头部导航 -->
@@ -1357,11 +1363,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* 基础样式 */
 .account-settings-page {
   min-height: 100vh;
-  background-color: #111827;
-  color: #f3f4f6;
+  background-color: var(--m-bg);
+  color: var(--m-text);
 }
 
 .page-content {
@@ -1374,32 +1379,30 @@ onMounted(async () => {
   padding: 0 1rem;
 }
 
-/* 页面标题 */
 .page-header {
   margin-bottom: 2rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.5);
+  border-bottom: 1px solid var(--m-border);
 }
 
 .page-title {
   font-size: 1.75rem;
   font-weight: 700;
   margin: 0 0 0.5rem 0;
+  color: var(--m-text);
 }
 
 .page-desc {
   margin: 0;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   font-size: 0.9375rem;
 }
 
-/* 设置容器 */
 .settings-container {
   display: flex;
   gap: 2rem;
 }
 
-/* 侧边导航 */
 .settings-sidebar {
   width: 260px;
   flex-shrink: 0;
@@ -1409,9 +1412,9 @@ onMounted(async () => {
   list-style: none;
   margin: 0;
   padding: 0;
-  background-color: #1f2937;
-  border-radius: 1rem;
-  border: 1px solid rgba(55, 65, 81, 0.5);
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
+  border: 1px solid var(--m-border);
   overflow: hidden;
 }
 
@@ -1420,21 +1423,21 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
   border-left: 3px solid transparent;
 }
 
 .nav-item:hover:not(.active) {
-  color: #f3f4f6;
-  background-color: rgba(55, 65, 81, 0.2);
+  color: var(--m-text);
+  background-color: var(--m-bg-tertiary);
 }
 
 .nav-item.active {
-  color: #3b82f6;
-  background-color: rgba(59, 130, 246, 0.1);
-  border-left-color: #3b82f6;
+  color: var(--m-accent);
+  background-color: var(--m-accent-light);
+  border-left-color: var(--m-accent);
 }
 
 .nav-item i {
@@ -1445,20 +1448,19 @@ onMounted(async () => {
 
 .nav-item.danger-zone {
   margin-top: 1rem;
-  color: #ef4444;
+  color: var(--m-danger);
 }
 
 .nav-item.danger-zone.active {
-  background-color: rgba(239, 68, 68, 0.1);
-  border-left-color: #ef4444;
+  background-color: var(--m-danger-light);
+  border-left-color: var(--m-danger);
 }
 
-/* 选项卡内容区 */
 .settings-content {
   flex: 1;
-  background-color: #1f2937;
-  border-radius: 1rem;
-  border: 1px solid rgba(55, 65, 81, 0.5);
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
+  border: 1px solid var(--m-border);
   padding: 2rem;
   min-height: calc(100vh - 220px);
 }
@@ -1467,19 +1469,18 @@ onMounted(async () => {
   animation: fadeIn 0.3s ease;
 }
 
-/* 设置卡片 */
 .settings-card {
   margin-bottom: 2rem;
   padding: 1.5rem;
-  background-color: rgba(17, 24, 37, 0.5);
-  border-radius: 0.75rem;
-  border: 1px solid rgba(55, 65, 81, 0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background-color: var(--m-bg);
+  border-radius: var(--m-radius);
+  border: 1px solid var(--m-border);
+  transition: transform var(--m-transition), box-shadow var(--m-transition);
 }
 
 .settings-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--m-shadow-md);
 }
 
 .settings-card:last-child {
@@ -1496,6 +1497,7 @@ onMounted(async () => {
   margin: 0 0 0.5rem 0;
   display: flex;
   align-items: center;
+  color: var(--m-text);
 }
 
 .card-title::before {
@@ -1503,17 +1505,16 @@ onMounted(async () => {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background-color: #3b82f6;
+  background-color: var(--m-accent);
   margin-right: 0.75rem;
 }
 
 .card-description {
   margin: 0;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   font-size: 0.875rem;
 }
 
-/* 表单基础样式 */
 .form-group {
   margin-bottom: 1.5rem;
 }
@@ -1522,41 +1523,41 @@ onMounted(async () => {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: #d1d5db;
+  color: var(--m-text-secondary);
   font-size: 0.875rem;
 }
 
 .required {
-  color: #ef4444;
+  color: var(--m-danger);
 }
 
 .form-input,
 .form-textarea {
   width: 100%;
   padding: 0.75rem 1rem;
-  background-color: rgba(17, 24, 37, 0.5);
-  border: 1px solid #374151;
-  border-radius: 0.5rem;
-  color: #f3f4f6;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  color: var(--m-text);
   font-size: 0.9375rem;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
 }
 
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
 }
 
 .form-input.error,
 .form-textarea.error {
-  border-color: #ef4444;
+  border-color: var(--m-danger);
 }
 
 .form-input.error:focus,
 .form-textarea.error:focus {
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 0 3px var(--m-danger-light);
 }
 
 .form-textarea {
@@ -1579,24 +1580,23 @@ onMounted(async () => {
 
 .input-hint {
   margin: 0.25rem 0 0 0;
-  color: #6b7280;
+  color: var(--m-text-muted);
   font-size: 0.75rem;
 }
 
 .error-text {
   margin: 0.25rem 0 0 0;
-  color: #ef4444;
+  color: var(--m-danger);
   font-size: 0.75rem;
 }
 
-/* 按钮样式 */
 .btn {
   padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
   font-weight: 500;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
   border: none;
   display: flex;
   align-items: center;
@@ -1604,46 +1604,46 @@ onMounted(async () => {
 }
 
 .save-btn {
-  background-color: #3b82f6;
+  background-color: var(--m-accent);
   color: white;
 }
 
 .save-btn:hover:not(:disabled) {
-  background-color: #2563eb;
+  background-color: var(--m-accent-hover);
   transform: translateY(-1px);
 }
 
 .cancel-btn {
-  background-color: rgba(55, 65, 81, 0.3);
-  color: #d1d5db;
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text);
 }
 
 .cancel-btn:hover:not(:disabled) {
-  background-color: rgba(55, 65, 81, 0.5);
-  color: #f3f4f6;
+  background-color: var(--m-border);
 }
 
 .bind-btn,
 .change-btn,
 .manage-btn {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
+  border: 1px solid var(--m-border);
 }
 
 .bind-btn:hover:not(:disabled),
 .change-btn:hover:not(:disabled),
 .manage-btn:hover:not(:disabled) {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--m-accent);
+  color: white;
 }
 
 .delete-btn {
-  background-color: #ef4444;
+  background-color: var(--m-danger);
   color: white;
 }
 
 .delete-btn:hover:not(:disabled) {
-  background-color: #dc2626;
+  background-color: #b91c1c;
 }
 
 .btn:disabled {
@@ -1651,7 +1651,6 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-/* 1. 个人信息样式 */
 .avatar-group {
   margin-bottom: 2rem;
 }
@@ -1667,8 +1666,8 @@ onMounted(async () => {
   height: 100px;
   border-radius: 50%;
   overflow: hidden;
-  border: 2px solid rgba(59, 130, 246, 0.3);
-  transition: transform 0.3s ease;
+  border: 2px solid var(--m-accent);
+  transition: transform var(--m-transition);
 }
 
 .avatar-preview:hover {
@@ -1689,44 +1688,43 @@ onMounted(async () => {
 
 .upload-btn {
   padding: 0.5rem 1rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 0.5rem;
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
 }
 
 .upload-btn:hover {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--m-accent);
+  color: white;
 }
 
 .reset-btn {
   padding: 0.5rem 1rem;
-  background-color: rgba(55, 65, 81, 0.3);
-  color: #d1d5db;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  border-radius: 0.5rem;
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
 }
 
 .reset-btn:hover:not(:disabled) {
-  background-color: rgba(55, 65, 81, 0.5);
-  color: #f3f4f6;
+  background-color: var(--m-border);
 }
 
 .avatar-input {
   display: none;
 }
 
-/* 2. 安全设置样式 */
 .code-group .code-input-wrap {
   display: flex;
   gap: 0.5rem;
@@ -1738,22 +1736,23 @@ onMounted(async () => {
 
 .get-code-btn {
   padding: 0 1rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 0.5rem;
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
   white-space: nowrap;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
 }
 
 .get-code-btn:hover:not(:disabled) {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--m-accent);
+  color: white;
 }
 
 .get-code-btn:disabled {
-  background-color: rgba(55, 65, 81, 0.2);
-  color: #6b7280;
-  border-color: rgba(55, 65, 81, 0.5);
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text-muted);
+  border-color: var(--m-border);
 }
 
 .phone-bound-info {
@@ -1761,8 +1760,8 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background-color: rgba(17, 24, 37, 0.5);
-  border-radius: 0.75rem;
+  background-color: var(--m-bg);
+  border-radius: var(--m-radius-sm);
 }
 
 .bound-detail {
@@ -1770,17 +1769,16 @@ onMounted(async () => {
 }
 
 .phone-masked {
-  color: #3b82f6;
+  color: var(--m-accent);
   font-weight: 500;
 }
 
 .info-hint {
   margin: 0.5rem 0 0 0;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   font-size: 0.875rem;
 }
 
-/* 3. 通知设置样式 */
 .notify-channels,
 .notify-types {
   display: flex;
@@ -1791,15 +1789,15 @@ onMounted(async () => {
 .channel-item,
 .type-item {
   padding: 1rem 0;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.2);
-  transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--m-border);
+  transition: background-color var(--m-transition);
 }
 
 .channel-item:hover,
 .type-item:hover {
-  background-color: rgba(17, 24, 37, 0.3);
+  background-color: var(--m-bg-tertiary);
   padding-left: 0.5rem;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
 }
 
 .channel-item:last-child,
@@ -1820,34 +1818,33 @@ onMounted(async () => {
   margin-top: 0.25rem;
   width: 1rem;
   height: 1rem;
-  accent-color: #3b82f6;
+  accent-color: var(--m-accent);
 }
 
 .channel-name,
 .type-name {
   font-weight: 500;
-  color: #f3f4f6;
+  color: var(--m-text);
 }
 
 .channel-desc,
 .type-desc {
   margin: 0.5rem 0 0 1.75rem;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   font-size: 0.875rem;
 }
 
 .channel-disabled {
   margin: 0.5rem 0 0 1.75rem;
-  color: #f59e0b;
+  color: var(--m-warning);
   font-size: 0.875rem;
 }
 
 .type-checkbox:disabled {
-  accent-color: #6b7280;
+  accent-color: var(--m-text-muted);
   cursor: not-allowed;
 }
 
-/* 4. 账号关联样式 */
 .connections-list {
   display: flex;
   flex-direction: column;
@@ -1859,14 +1856,14 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background-color: rgba(17, 24, 37, 0.5);
-  border-radius: 0.75rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background-color: var(--m-bg);
+  border-radius: var(--m-radius);
+  transition: transform var(--m-transition), box-shadow var(--m-transition);
 }
 
 .connection-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--m-shadow-md);
 }
 
 .connection-info {
@@ -1879,12 +1876,12 @@ onMounted(async () => {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: var(--m-accent-light);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  color: #3b82f6;
+  color: var(--m-accent);
 }
 
 .connection-details {
@@ -1895,11 +1892,12 @@ onMounted(async () => {
 .connection-name {
   font-weight: 600;
   margin: 0 0 0.25rem 0;
+  color: var(--m-text);
 }
 
 .connection-status {
   margin: 0;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   font-size: 0.875rem;
 }
 
@@ -1908,14 +1906,13 @@ onMounted(async () => {
   gap: 0.75rem;
 }
 
-/* 5. 安全中心样式 */
 .danger-card {
-  border-color: rgba(239, 68, 68, 0.2);
-  background-color: rgba(31, 41, 55, 0.8);
+  border-color: var(--m-danger-light);
+  background-color: var(--m-danger-light);
 }
 
 .danger-card .card-title::before {
-  background-color: #ef4444;
+  background-color: var(--m-danger);
 }
 
 .danger-actions {
@@ -1926,29 +1923,28 @@ onMounted(async () => {
 
 .danger-item {
   padding: 1.5rem;
-  background-color: rgba(17, 24, 37, 0.6);
-  border-radius: 0.75rem;
-  border: 1px solid rgba(239, 68, 68, 0.1);
+  background-color: var(--m-bg);
+  border-radius: var(--m-radius);
+  border: 1px solid var(--m-danger-light);
 }
 
 .danger-title {
   font-size: 1.1rem;
   font-weight: 600;
   margin: 0 0 1rem 0;
-  color: #ef4444;
+  color: var(--m-danger);
 }
 
 .danger-description {
   margin: 0 0 1.5rem 0;
-  color: #d1d5db;
+  color: var(--m-text-secondary);
   line-height: 1.6;
 }
 
-/* 弹窗样式 */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -1958,17 +1954,17 @@ onMounted(async () => {
 }
 
 .modal {
-  background-color: #1f2937;
-  border-radius: 1rem;
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
   width: 90%;
   max-width: 500px;
-  border: 1px solid rgba(55, 65, 81, 0.5);
+  border: 1px solid var(--m-border);
   animation: scaleIn 0.3s ease;
 }
 
 .modal-header {
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  border-bottom: 1px solid var(--m-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1978,12 +1974,13 @@ onMounted(async () => {
   font-size: 1.25rem;
   font-weight: 600;
   margin: 0;
+  color: var(--m-text);
 }
 
 .close-modal {
   background: transparent;
   border: none;
-  color: #9ca3af;
+  color: var(--m-text-muted);
   cursor: pointer;
   width: 2rem;
   height: 2rem;
@@ -1991,12 +1988,12 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
 }
 
 .close-modal:hover {
-  background-color: rgba(55, 65, 81, 0.2);
-  color: #f3f4f6;
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text);
 }
 
 .modal-body {
@@ -2005,13 +2002,12 @@ onMounted(async () => {
 
 .modal-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid rgba(55, 65, 81, 0.3);
+  border-top: 1px solid var(--m-border);
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
 }
 
-/* 注销账号弹窗样式 */
 .warning-icon {
   text-align: center;
   margin-bottom: 1rem;
@@ -2019,11 +2015,11 @@ onMounted(async () => {
 
 .warning-icon i {
   font-size: 3rem;
-  color: #f59e0b;
+  color: var(--m-warning);
 }
 
 .warning-text {
-  color: #f3f4f6;
+  color: var(--m-text);
   line-height: 1.6;
   margin: 0 0 1.5rem 0;
   text-align: center;
@@ -2036,61 +2032,59 @@ onMounted(async () => {
 .verify-label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #d1d5db;
+  color: var(--m-text-secondary);
   font-size: 0.875rem;
 }
 
 .verify-text {
-  color: #ef4444;
+  color: var(--m-danger);
   font-weight: 600;
 }
 
 .verify-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  background-color: rgba(17, 24, 37, 0.5);
-  border: 1px solid #374151;
-  border-radius: 0.5rem;
-  color: #f3f4f6;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  color: var(--m-text);
   font-size: 0.9375rem;
 }
 
 .verify-input:focus {
   outline: none;
-  border-color: #ef4444;
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+  border-color: var(--m-danger);
+  box-shadow: 0 0 0 3px var(--m-danger-light);
 }
 
-/* 提示消息 */
 .toast {
   position: fixed;
   bottom: 2rem;
   left: 50%;
   transform: translateX(-50%);
   padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
   color: white;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   z-index: 1001;
   animation: fadeInUp 0.3s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--m-shadow-lg);
 }
 
 .toast.success {
-  background-color: #10b981;
+  background-color: var(--m-success);
 }
 
 .toast.error {
-  background-color: #ef4444;
+  background-color: var(--m-danger);
 }
 
 .toast i {
   font-size: 1.25rem;
 }
 
-/* 动画 */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -2106,16 +2100,15 @@ onMounted(async () => {
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* 响应式适配 */
 @media (max-width: 768px) {
   .settings-container {
     flex-direction: column;
   }
-  
+
   .settings-sidebar {
     width: 100%;
   }
-  
+
   .settings-content {
     padding: 1.5rem 1rem;
     min-height: auto;
@@ -2149,13 +2142,13 @@ onMounted(async () => {
     width: 100%;
     justify-content: center;
   }
-  
+
   .connection-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
   }
-  
+
   .connection-actions {
     width: 100%;
     justify-content: flex-end;

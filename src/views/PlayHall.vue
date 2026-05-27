@@ -1,3 +1,14 @@
+<!--
+  【打手大厅】顾客浏览和筛选打手的列表页面
+  功能：
+    - 多维度筛选：段位(传奇/大师/钻石/铂金)、擅长领域、价格范围
+    - 排序方式：评分优先/胜率优先/价格升降序/订单量
+    - 打手卡片网格展示（头像/段位/胜率/评分/价格/技能标签）
+    - 打手详情弹窗（完整信息 + 擅长领域 + 简介）
+    - 预约入口：点击"立即预约" → 跳转订单创建页携带打手信息
+  角色：仅顾客(level=0)可见
+  交互：筛选条件即时过滤 → 分页浏览 → 点击预约 → 跳转到下单
+-->
 <template>
   <div class="player-hall-page">
     <!-- 头部导航（复用项目现有Header） -->
@@ -94,7 +105,10 @@
         </div>
 
         <!-- 打手卡片网格 -->
-        <div class="players-grid">
+        <div v-if="isLoading" class="players-grid">
+          <SkeletonCard v-for="n in 6" :key="'sk-' + n" />
+        </div>
+        <div v-else class="players-grid">
           <!-- 打手卡片（复用组件） -->
             <PlayerProfileCard 
              v-for="player in filteredPlayers" 
@@ -227,13 +241,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-// 引入项目现有组件
+
 import Header from '../layouts/Header.vue';
 import Footer from '../layouts/Footer.vue';
-// 引入打手卡片组件（下方会提供）
+
 import PlayerProfileCard from '@/components/Players/PlayerProfileCard.vue';
 import { playerHallApi } from '../api/playerHallApi';
 import { useUserStore } from '../stores/user';
+import { useEscKey } from '../composables/useEscKey';
+import SkeletonCard from '../components/Common/SkeletonCard.vue';
 
 // 路由实例
 // 路由实例
@@ -298,11 +314,15 @@ function mapRemoteToPlayer(raw: Record<string, unknown>): Player {
 
 // 分页状态
 const currentPage = ref(1);
-const pageSize = ref(8); // 每页显示8个打手
+const pageSize = ref(8);
+
+const isLoading = ref(true);
 
 // 打手详情弹窗状态
 const selectedPlayer = ref<Player | null>(null);
 const showDetailModal = ref(false);
+
+useEscKey(showDetailModal, () => { showDetailModal.value = false });
 
 // —— 模拟打手数据（实际项目对接API） ——
 const allPlayers = ref<Player[]>([
@@ -327,7 +347,7 @@ const allPlayers = ref<Player[]>([
     avatar: 'https://picsum.photos/id/1025/300/300',
     rank: 'master',
     rankText: '大师',
-    rankColor: '#8b5cf6',
+    rankColor: '#06b6d4',
     skills: ['突击攻坚', '装备获取', '快速推进'],
     winRate: 78,
     completedOrders: 987,
@@ -372,7 +392,7 @@ const allPlayers = ref<Player[]>([
     avatar: 'https://picsum.photos/id/1084/300/300',
     rank: 'master',
     rankText: '大师',
-    rankColor: '#8b5cf6',
+    rankColor: '#06b6d4',
     skills: ['突击攻坚', '近战格斗', '快速清场'],
     winRate: 76,
     completedOrders: 632,
@@ -417,7 +437,7 @@ const allPlayers = ref<Player[]>([
     avatar: 'https://picsum.photos/id/1027/300/300',
     rank: 'master',
     rankText: '大师',
-    rankColor: '#8b5cf6',
+    rankColor: '#06b6d4',
     skills: ['特殊任务', '剧情通关', '隐藏彩蛋'],
     winRate: 74,
     completedOrders: 398,
@@ -587,7 +607,7 @@ onMounted(async () => {
     return;
   }
 
-  // Mock 与真实模式均拉取列表，保证 ID 与后端/工作台一致；失败时保留上方静态兜底数据
+  isLoading.value = true;
   try {
     const rows = await playerHallApi.listPlayers();
     if (rows.length) {
@@ -595,6 +615,8 @@ onMounted(async () => {
     }
   } catch {
     /* 网络或接口异常：使用本地演示数据 */
+  } finally {
+    isLoading.value = false;
   }
 });
 </script>
@@ -603,9 +625,9 @@ onMounted(async () => {
 /* 页面基础样式 */
 .player-hall-page {
   min-height: 100vh;
-  background-color: #0f172a;
-  color: #e2e8f0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--m-bg);
+  color: var(--m-text);
+  font-family: var(--m-font-body);
 }
 
 .container {
@@ -617,28 +639,35 @@ onMounted(async () => {
 
 /* 页面标题区 */
 .page-header {
-  padding: 2rem 0;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  padding: 2.5rem 0;
 }
 
 .header-content h1 {
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  color: #f3f4f6;
+  color: var(--m-text);
+  letter-spacing: -0.01em;
 }
 
 .header-content p {
-  font-size: 1.1rem;
-  color: #94a3b8;
+  font-size: 1rem;
+  color: var(--m-text-muted);
   max-width: 800px;
+  line-height: 1.6;
 }
 
 /* 筛选与排序区 */
 .filter-sort-bar {
-  padding: 1.5rem 0;
-  background-color: #1e293b;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  padding: 1rem 0;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: 14px;
+  margin-bottom: 2rem;
+}
+
+.filter-sort-bar .container {
+  padding: 0 1.25rem;
 }
 
 .filter-sort-container {
@@ -652,49 +681,59 @@ onMounted(async () => {
 .filter-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .filter-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  min-width: 180px;
+  gap: 0.35rem;
+  min-width: 160px;
 }
 
 .filter-item label {
-  font-size: 0.9rem;
-  color: #94a3b8;
-  font-weight: 500;
+  font-size: 0.72rem;
+  color: var(--m-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .filter-select, .sort-select {
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  background-color: #0f172a;
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  color: #e2e8f0;
-  font-size: 0.95rem;
+  padding: 0.5rem 0.85rem;
+  padding-right: 2rem;
+  border-radius: 10px;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border-light);
+  color: var(--m-text);
+  font-size: 0.85rem;
   cursor: pointer;
-  transition: border-color 0.3s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235C5C5C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 0.85rem;
+  transition: all 0.2s ease;
 }
 
 .filter-select:focus, .sort-select:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
 }
 
 .sort-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .sort-group label {
-  font-size: 0.9rem;
-  color: #94a3b8;
-  font-weight: 500;
+  font-size: 0.72rem;
+  color: var(--m-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* 打手列表区 */
@@ -704,12 +743,12 @@ onMounted(async () => {
 
 .result-tip {
   font-size: 1rem;
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   margin-bottom: 1.5rem;
 }
 
 .highlight {
-  color: #3b82f6;
+  color: var(--m-accent);
   font-weight: 600;
   font-size: 1.1rem;
 }
@@ -722,11 +761,11 @@ onMounted(async () => {
 }
 
 .restricted-notice {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+  background: var(--m-danger-light);
+  border: 1px solid var(--m-danger);
+  color: var(--m-danger);
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: var(--m-radius);
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -735,7 +774,6 @@ onMounted(async () => {
 
 .restricted-notice i {
   font-size: 1.25rem;
-  color: #ef4444;
 }
 
 .mb-4 { margin-bottom: 1.5rem; }
@@ -744,29 +782,30 @@ onMounted(async () => {
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  background-color: #1e293b;
-  border-radius: 1rem;
-  border: 1px dashed rgba(55, 65, 81, 0.5);
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
+  border: 1px dashed var(--m-border);
 }
 
 .empty-state p {
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   margin: 1rem 0 1.5rem;
   font-size: 1.1rem;
 }
 
 .reset-filter-btn {
   padding: 0.75rem 1.5rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 0.5rem;
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--m-transition);
 }
 
 .reset-filter-btn:hover {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--m-accent);
+  color: white;
 }
 
 /* 分页控件 */
@@ -780,12 +819,12 @@ onMounted(async () => {
 
 .page-btn {
   padding: 0.5rem 1rem;
-  background-color: #1e293b;
-  color: #e2e8f0;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  border-radius: 0.5rem;
+  background-color: var(--m-bg-secondary);
+  color: var(--m-text);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--m-transition);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -797,8 +836,9 @@ onMounted(async () => {
 }
 
 .page-btn:hover:not(:disabled) {
-  background-color: #3b82f6;
-  border-color: #3b82f6;
+  background-color: var(--m-accent);
+  border-color: var(--m-accent);
+  color: white;
 }
 
 .page-numbers {
@@ -812,18 +852,18 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--m-transition);
 }
 
 .page-number.active {
-  background-color: #3b82f6;
+  background-color: var(--m-accent);
   color: white;
 }
 
 .page-number:hover:not(.active) {
-  background-color: #1e293b;
+  background-color: var(--m-bg-tertiary);
 }
 
 /* 背景装饰（与护航页面统一） */
@@ -847,7 +887,7 @@ onMounted(async () => {
   right: -20rem;
   width: 40rem;
   height: 40rem;
-  background-color: #3b82f6;
+  background-color: var(--m-accent);
 }
 
 .blob-2 {
@@ -855,7 +895,7 @@ onMounted(async () => {
   left: -20rem;
   width: 40rem;
   height: 40rem;
-  background-color: #8b5cf6;
+  background-color: #06b6d4;
 }
 
 /* 详情弹窗 */
@@ -863,7 +903,7 @@ onMounted(async () => {
   position: fixed;
   inset: 0;
   z-index: 2000;
-  background-color: rgba(2, 6, 23, 0.72);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -874,12 +914,12 @@ onMounted(async () => {
   width: min(680px, 100%);
   max-height: 85vh;
   overflow-y: auto;
-  background: #111827;
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  border-radius: 1rem;
+  background: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius);
   padding: 1.25rem;
   position: relative;
-  box-shadow: 0 24px 48px rgba(2, 6, 23, 0.55);
+  box-shadow: var(--m-shadow-lg);
 }
 
 .modal-close-btn {
@@ -890,8 +930,8 @@ onMounted(async () => {
   height: 2rem;
   border: none;
   border-radius: 9999px;
-  background: rgba(148, 163, 184, 0.15);
-  color: #cbd5e1;
+  background: var(--m-bg-tertiary);
+  color: var(--m-text);
   cursor: pointer;
 }
 
@@ -907,13 +947,13 @@ onMounted(async () => {
   height: 76px;
   border-radius: 9999px;
   object-fit: cover;
-  border: 2px solid rgba(59, 130, 246, 0.45);
+  border: 2px solid var(--m-accent);
 }
 
 .detail-user-main h3 {
   margin: 0;
   font-size: 1.35rem;
-  color: #f8fafc;
+  color: var(--m-text);
 }
 
 .detail-rank-row {
@@ -931,7 +971,7 @@ onMounted(async () => {
 }
 
 .detail-price {
-  color: #93c5fd;
+  color: var(--m-accent);
   font-weight: 600;
 }
 
@@ -943,22 +983,22 @@ onMounted(async () => {
 }
 
 .metric-item {
-  background: #1f2937;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(55, 65, 81, 0.6);
+  background: var(--m-bg-tertiary);
+  border-radius: var(--m-radius);
+  border: 1px solid var(--m-border);
   padding: 0.75rem;
 }
 
 .metric-label {
   display: block;
-  color: #94a3b8;
+  color: var(--m-text-muted);
   font-size: 0.8rem;
 }
 
 .metric-value {
   display: block;
   margin-top: 0.35rem;
-  color: #f8fafc;
+  color: var(--m-text);
   font-weight: 700;
 }
 
@@ -968,7 +1008,7 @@ onMounted(async () => {
 
 .detail-section h4 {
   margin: 0 0 0.5rem;
-  color: #cbd5e1;
+  color: var(--m-text);
   font-size: 0.95rem;
 }
 
@@ -982,20 +1022,20 @@ onMounted(async () => {
   font-size: 0.8rem;
   border-radius: 9999px;
   padding: 0.25rem 0.65rem;
-  background: rgba(59, 130, 246, 0.16);
-  color: #bfdbfe;
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: var(--m-accent-light);
+  color: var(--m-accent);
+  border: 1px solid var(--m-border);
 }
 
 .tag-chip {
-  background: rgba(139, 92, 246, 0.16);
-  color: #ddd6fe;
-  border-color: rgba(139, 92, 246, 0.35);
+  background: rgba(6, 182, 212, 0.1);
+  color: #06b6d4;
+  border-color: rgba(6, 182, 212, 0.2);
 }
 
 .detail-intro {
   margin: 0;
-  color: #cbd5e1;
+  color: var(--m-text-secondary);
   line-height: 1.75;
 }
 
@@ -1008,20 +1048,20 @@ onMounted(async () => {
 
 .detail-btn {
   border: none;
-  border-radius: 0.6rem;
+  border-radius: var(--m-radius-sm);
   padding: 0.55rem 1rem;
   cursor: pointer;
   font-weight: 600;
 }
 
 .detail-btn.secondary {
-  color: #e2e8f0;
-  background: rgba(148, 163, 184, 0.2);
+  color: var(--m-text);
+  background: var(--m-bg-tertiary);
 }
 
 .detail-btn.primary {
   color: #fff;
-  background: linear-gradient(90deg, #2563eb 0%, #4f46e5 100%);
+  background: var(--m-accent);
 }
 
 /* 响应式调整 */

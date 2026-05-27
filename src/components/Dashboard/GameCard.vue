@@ -1,142 +1,193 @@
 <template>
-  <div class="game-card">
-    <div class="game-image">
-      <img :src="game.imageUrl" :alt="game.name" class="game-img">
-      <div class="game-overlay">
-        <span class="players-count">
-          <i class="fa fa-users"></i> {{ game.players }}
+  <router-link :to="`/play-hall?game=${game.id}`" class="game-card">
+    <div class="card-media">
+      <img :src="game.imageUrl" :alt="game.name" class="card-img" />
+      <div class="card-shine"></div>
+      <div class="card-badge">
+        <span class="badge-players">
+          <i class="fa fa-users"></i> {{ game.players.toLocaleString() }}
         </span>
       </div>
+      <div class="card-gradient"></div>
     </div>
-    <div class="game-info">
-      <h3 class="game-name">{{ game.name }}</h3>
-      <div class="game-rating">
-        <i class="fa fa-star"></i>
-        <span class="rating-value">{{ game.rating }}</span>
+    <div class="card-body">
+      <div class="card-info">
+        <span class="card-name">{{ game.name }}</span>
+        <div class="card-meta">
+          <span class="meta-rating">
+            <i class="fa fa-star"></i>
+            {{ game.rating.toFixed(1) }}
+          </span>
+          <span class="meta-divider">·</span>
+          <span class="meta-hot">热门</span>
+        </div>
       </div>
+      <span class="card-arrow">→</span>
     </div>
-    <router-link :to="`/orders?create=1&gameKey=${resolveGameKey(game.name)}&serviceKey=fullEscort&source=dashboard`" class="book-button">立即预约</router-link>
-  </div>
+  </router-link>
 </template>
 
 <script setup lang="ts">
-import { defineProps } from 'vue';
-import { getGameByName } from '../../constants/games';
-
-// 定义游戏数据类型
-interface Game {
-  id: number;
-  name: string;
-  imageUrl: string;
-  players: number;
-  rating: number;
-}
-
-// 定义props
-const props = defineProps({
+defineProps<{
   game: {
-    type: Object as () => Game,
-    required: true
+    id: number
+    name: string
+    imageUrl: string
+    players: number
+    rating: number
   }
-});
-
-const resolveGameKey = (gameName: string) => {
-  return getGameByName(gameName)?.key || 'delta';
-};
+}>()
 </script>
 
 <style scoped>
 .game-card {
-  background-color: #1f2937;
-  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  background: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
 }
 
 .game-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-  border-color: rgba(59, 130, 246, 0.5);
+  border-color: var(--m-accent);
+  box-shadow: 0 8px 30px rgba(37, 99, 235, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-4px);
 }
 
-.game-image {
+.card-media {
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
   position: relative;
-  height: 140px;
+  background: var(--m-bg);
 }
 
-.game-img {
+.card-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.game-overlay {
+.game-card:hover .card-img {
+  transform: scale(1.08);
+}
+
+.card-shine {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(17, 24, 37, 0.9), transparent);
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.08) 45%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.08) 55%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
 }
 
-.players-count {
+.game-card:hover .card-shine {
+  transform: translateX(100%);
+}
+
+.card-badge {
   position: absolute;
-  bottom: 0.75rem;
-  right: 0.75rem;
-  background-color: rgba(17, 24, 37, 0.7);
-  backdrop-filter: blur(4px);
-  color: #f3f4f6;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 9999px;
-  display: flex;
+  top: 0.625rem;
+  right: 0.625rem;
+}
+
+.badge-players {
+  display: inline-flex;
   align-items: center;
-}
-
-.players-count i {
-  margin-right: 0.25rem;
-  font-size: 0.625rem;
-}
-
-.game-info {
-  padding: 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.game-name {
+  gap: 0.3rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: #f3f4f6;
+  color: white;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  padding: 0.25rem 0.6rem;
+  border-radius: 100px;
 }
 
-.game-rating {
+.badge-players i {
+  font-size: 0.65rem;
+}
+
+.card-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.game-card:hover .card-gradient {
+  opacity: 1;
+}
+
+.card-body {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1rem;
+}
+
+.card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.card-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--m-text);
+  line-height: 1.3;
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--m-text-muted);
+}
+
+.meta-rating {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
   color: #f59e0b;
   font-weight: 600;
 }
 
-.game-rating i {
-  margin-right: 0.25rem;
-  font-size: 0.875rem;
+.meta-rating i {
+  font-size: 0.65rem;
 }
 
-.book-button {
-  display: block;
-  width: 100%;
-  padding: 0.75rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  text-align: center;
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 0.875rem;
-  transition: all 0.3s ease;
-  border-top: 1px solid rgba(55, 65, 81, 0.5);
+.meta-divider {
+  color: var(--m-border);
 }
 
-.book-button:hover {
-  background-color: #3b82f6;
-  color: white;
+.meta-hot {
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 0.7rem;
+}
+
+.card-arrow {
+  font-size: 1.1rem;
+  color: var(--m-text-muted);
+  transition: all 0.2s ease;
+  opacity: 0;
+  transform: translateX(-4px);
+}
+
+.game-card:hover .card-arrow {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--m-accent);
 }
 </style>
-    

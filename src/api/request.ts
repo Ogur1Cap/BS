@@ -1,3 +1,13 @@
+/*
+ * 【统一请求层】前端 HTTP 通信基础设施
+ * 功能：
+ *   - Mock模式切换：开发阶段使用本地mock，生产环境调用真实后端API
+ *   - 统一错误处理：ApiError 封装状态码和错误信息
+ *   - Token鉴权：自动从localStorage读取JWT Token并注入Authorization头
+ *   - 响应解包：处理后端 JsonResponse 格式 (code/data/message)
+ *   - 401处理：Token过期时自动清除登录态并重定向到登录页
+ *   - 业务状态码检查：code=0/200 表示成功，否则抛出异常
+ */
 import { isMockMode } from './apiMode'
 import { getAuthToken, removeAuthToken, removeAuthUser } from './token'
 import { mockRequest } from '../mock/mockRequest'

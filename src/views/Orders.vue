@@ -1,4 +1,14 @@
 <template>
+  <!--
+  【订单管理页面】核心业务页面 - 订单全生命周期管理
+  功能：订单列表展示、多维度筛选（状态/游戏/时间）、搜索、分页、创建订单、取消订单、申请退款
+  交互：
+    - 筛选栏联动过滤 → 实时更新统计数据
+    - 点击"创建新订单" → 弹窗选择游戏/服务/打手 → 栗币支付
+    - 点击"取消订单" → 确认弹窗 → 提交取消
+    - 点击"申请退款" → 选择原因 → 提交退款申请给Boss审核
+  角色：所有登录用户可见（顾客查看自己的订单）
+  -->
   <div class="orders-page">
     <!-- 头部导航 -->
     <Header 
@@ -69,7 +79,7 @@
               <i class="fa fa-search search-icon"></i>
               <input
                 type="text"
-                v-model="searchQuery"
+                v-model="rawSearch"
                 class="search-input"
                 placeholder="搜索订单号或游戏名称"
                 @keyup.enter="handleSearch"
@@ -77,7 +87,7 @@
               <button 
                 class="clear-search"
                 @click="clearSearch"
-                v-if="searchQuery"
+                v-if="rawSearch"
               >
                 <i class="fa fa-times"></i>
               </button>
@@ -129,7 +139,16 @@
             </thead>
             <tbody>
               <tr v-for="order in filteredOrders" :key="order.id" class="order-row">
-                <td class="order-id-col">{{ order.id }}</td>
+                <td class="order-id-col">
+                  <span class="order-id-text">{{ order.id }}</span>
+                  <button
+                    class="copy-id-btn"
+                    :title="copiedOrderId === order.id ? '已复制' : '复制订单号'"
+                    @click="copyOrderId(order.id)"
+                  >
+                    <i :class="copiedOrderId === order.id ? 'fa fa-check' : 'far fa-copy'"></i>
+                  </button>
+                </td>
                 <td class="order-game-col">
                   <div class="game-info">
                     <img :src="order.gameImage" :alt="order.game" class="game-icon">
@@ -157,6 +176,7 @@
                       @click="handleViewOrder(order.id)"
                     >
                       <i class="fa fa-eye"></i>
+                      <span>查看详情</span>
                     </button>
                     <button 
                       class="cancel-btn"
@@ -165,6 +185,16 @@
                       v-if="['pending', 'ongoing', 'completion_pending'].includes(order.status)"
                     >
                       <i class="fa fa-times"></i>
+                      <span>取消订单</span>
+                    </button>
+                    <button 
+                      class="refund-btn"
+                      @click="handleRefundOrder(order.id)"
+                      title="申请退款"
+                      v-if="['completed'].includes(order.status)"
+                    >
+                      <i class="fa fa-refresh"></i>
+                      <span>申请退款</span>
                     </button>
                   </div>
                 </td>
@@ -172,7 +202,7 @@
               <tr v-if="filteredOrders.length === 0 && !isLoading">
                 <td colspan="8" class="no-orders">
                   <div class="no-orders-content">
-                    <i class="fa fa-file-text-o"></i>
+                    <i class="far fa-file-lines"></i>
                     <p>没有找到符合条件的订单</p>
                     <button class="reset-filters" @click="resetFilters">
                       重置筛选条件
@@ -181,11 +211,8 @@
                 </td>
               </tr>
               <tr v-if="isLoading">
-                <td colspan="8" class="loading-orders">
-                  <div class="loading-content">
-                    <i class="fa fa-spinner fa-spin"></i>
-                    <p>加载订单中...</p>
-                  </div>
+                <td colspan="8" class="skeleton-cell-wrap">
+                  <SkeletonTable :rows="5" />
                 </td>
               </tr>
             </tbody>
@@ -326,6 +353,14 @@
             </div>
           </div>
         </div>
+        <div class="order-coin-balance" v-if="orderCoinBalance > 0">
+          <i class="fa fa-coins"></i>
+          <span>栗币余额：<strong>{{ formatCoin(orderCoinBalance) }}</strong></span>
+          <span class="coin-sep">|</span>
+          <span>需支付：<strong>{{ orderCoinCost }}</strong> 栗币</span>
+          <span v-if="orderCoinBalance < orderCoinCost" class="coin-warn"><i class="fa fa-exclamation-triangle"></i> 余额不足 <router-link to="/wallet" class="coin-recharge-link">去充值 →</router-link></span>
+          <span v-else class="coin-ok"><i class="fa fa-check-circle"></i> 余额充足</span>
+        </div>
         <div class="modal-footer">
           <button type="button" class="modal-btn cancel" :disabled="createSubmitting" @click="closeCreateModal">取消</button>
           <button type="button" class="modal-btn confirm" :disabled="createSubmitting" @click="submitCreateOrder">
@@ -366,13 +401,66 @@
       </div>
     </div>
 
+    <!-- 申请退款弹窗 -->
+    <div class="modal-backdrop" v-if="showRefundModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title">申请退款</h3>
+          <button class="close-modal" @click="showRefundModal = false">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>您确定要为订单 <strong>{{ refundOrderId }}</strong> 申请退款吗？</p>
+          <p class="cancel-warning">退款申请将提交给管理员审核，审核通过后将按照相关规定处理。</p>
+          
+          <div class="refund-amount">
+            <label class="refund-amount-label">退款金额</label>
+            <div class="refund-amount-value">¥{{ refundAmount.toFixed(2) }}</div>
+          </div>
+          
+          <div class="refund-reason">
+            <label class="refund-reason-label">退款原因</label>
+            <select v-model="refundReason" class="refund-reason-select">
+              <option value="">请选择退款原因</option>
+              <option v-for="option in refundReasonOptions" :key="option" :value="option">{{ option }}</option>
+            </select>
+          </div>
+          
+          <textarea
+            v-model="refundDescription"
+            class="cancel-reason"
+            placeholder="请详细描述退款原因（选填）"
+            rows="3"
+          ></textarea>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" @click="showRefundModal = false">
+            取消
+          </button>
+          <button class="modal-btn confirm refund-confirm" @click="confirmRefundOrder">
+            提交退款申请
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 页脚 -->
     <Footer />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+/*
+ * 订单管理 - 核心业务逻辑
+ * 功能模块：
+ *   1. 订单列表 - 筛选、搜索、分页
+ *   2. 创建订单 - 弹窗表单（游戏选择/服务类型/金额/打手指定）→ 栗币扣款
+ *   3. 取消订单 - 确认弹窗 → 取消并通知
+ *   4. 退款申请 - 原因选择 → 提交Boss审核
+ *   5. 订单状态流转：pending(待接单) → ongoing(进行中) → completion_pending(待审核) → completed(已完成)
+ */
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ordersApi } from '../api/ordersApi';
 import { GAME_LIST, getGameByKey } from '../constants/games';
@@ -380,10 +468,14 @@ import { SERVICE_LIST, getServiceByKey } from '../constants/services';
 import type { ServiceMeta } from '../constants/services';
 import { isCustomerAccount } from '../utils/authLevel';
 import { normalizePlayerProfileId } from '../utils/playerProfileId';
+import { useDebounce } from '../composables/useDebounce';
+import { useClipboard } from '../composables/useClipboard';
+import { useEscKey } from '../composables/useEscKey';
 
 // 导入组件
 import Header from '../layouts/Header.vue';
 import Footer from '../layouts/Footer.vue';
+import SkeletonTable from '../components/Common/SkeletonTable.vue';
 
 // 路由实例
 const router = useRouter();
@@ -395,22 +487,48 @@ const userAvatar = ref('https://picsum.photos/id/237/200/200');
 const isLoading = ref(true);
 const orders = ref<any[]>([]);
 
-// 筛选和搜索状态
+// ========== 筛选和搜索状态 ==========
 const statusFilter = ref('all');
 const gameFilter = ref('all');
 const timeFilter = ref('all');
-const searchQuery = ref('');
+const rawSearch = ref('');
+const { debounced: searchQuery } = useDebounce(rawSearch, 350);
 
-// 分页状态
+const { copy, copied: copyId } = useClipboard();
+const copiedOrderId = ref('');
+
+// ========== 分页状态 ==========
 const currentPage = ref(1);
 const pageSize = ref(10);
 
-// 弹窗状态
+// ========== 弹窗状态 ==========
 const showCancelModal = ref(false);
 const cancelOrderId = ref('');
 const cancelReason = ref('');
+const showRefundModal = ref(false);
+const refundOrderId = ref('');
+const refundReason = ref('');
+const refundDescription = ref('');
+const refundAmount = ref(0);
+const refundReasonOptions = [
+  '服务质量问题',
+  '未按时完成',
+  '与描述不符',
+  '个人原因',
+  '其他'
+];
 const showCreateModal = ref(false);
 const createSubmitting = ref(false);
+
+// ESC 键关闭弹窗
+useEscKey(showCancelModal, () => { showCancelModal.value = false });
+useEscKey(showRefundModal, () => { showRefundModal.value = false });
+useEscKey(showCreateModal, () => { closeCreateModal() });
+const orderCoinBalance = ref(0);
+const orderCoinCost = computed(() => createForm.amount)
+function formatCoin(val: number): string {
+  return (val / 100).toLocaleString('zh-CN') + ' 🪙'
+}
 /** 创建订单金额快捷按钮 */
 const createAmountPresets = [128, 158, 198, 248, 298];
 
@@ -462,7 +580,7 @@ const initUserInfo = () => {
   }
 };
 
-// 筛选订单
+// 【核心功能】多条件筛选 + 搜索 + 分页
 const filteredOrders = computed(() => {
   let result = [...orders.value];
   
@@ -642,8 +760,12 @@ const formatDate = (dateString: string) => {
 
 // 处理筛选条件变化
 const handleFilterChange = () => {
-  currentPage.value = 1; // 筛选条件变化时重置到第一页
+  currentPage.value = 1;
 };
+
+watch(searchQuery, () => {
+  currentPage.value = 1;
+});
 
 // 处理搜索
 const handleSearch = () => {
@@ -652,8 +774,7 @@ const handleSearch = () => {
 
 // 清除搜索
 const clearSearch = () => {
-  searchQuery.value = '';
-  currentPage.value = 1;
+  rawSearch.value = '';
 };
 
 // 重置筛选条件
@@ -661,7 +782,7 @@ const resetFilters = () => {
   statusFilter.value = 'all';
   gameFilter.value = 'all';
   timeFilter.value = 'all';
-  searchQuery.value = '';
+  rawSearch.value = '';
   currentPage.value = 1;
 };
 
@@ -682,9 +803,25 @@ const handleViewOrder = (orderId: string) => {
   router.push(`/orders/${orderId}`);
 };
 
+const copyOrderId = async (orderId: string) => {
+  const ok = await copy(orderId)
+  if (ok) {
+    copiedOrderId.value = orderId
+    setTimeout(() => { copiedOrderId.value = '' }, 2200)
+  }
+};
+
 // 导航到创建订单页面
-const navigateToCreateOrder = () => {
+const navigateToCreateOrder = async () => {
   showCreateModal.value = true;
+  try {
+    const { useWalletStore } = await import('../stores/wallet')
+    const ws = useWalletStore()
+    await ws.ensureLoaded()
+    orderCoinBalance.value = ws.balance
+  } catch {
+    orderCoinBalance.value = 0
+  }
 };
 
 function closeCreateModal() {
@@ -697,10 +834,19 @@ function pickCreateService(s: ServiceMeta) {
   createForm.amount = s.defaultAmount;
 }
 
+// 【核心交互】创建订单：表单验证 → 栗币余额检查 → 调用ordersApi.createOrder() → 刷新列表
 const submitCreateOrder = async () => {
   if (!createForm.serviceType || createForm.amount <= 0) {
     showToastMessage('请完善订单信息后再提交', 'error');
     return;
+  }
+
+  const amountYuan = Number(createForm.amount) || 198
+  const costInCents = Math.round(amountYuan * 100)
+
+  if (orderCoinBalance.value > 0 && orderCoinBalance.value < costInCents) {
+    showToastMessage('栗币余额不足，请先充值', 'error')
+    return
   }
 
   try {
@@ -712,7 +858,7 @@ const submitCreateOrder = async () => {
       game: selectedCreateGame.value.name,
       gameImage: selectedCreateGame.value.image,
       serviceType: createForm.serviceType,
-      amount: Number(createForm.amount) || selectedService?.defaultAmount || 198,
+      amount: amountYuan,
       playerId: (() => {
         const n = normalizePlayerProfileId(createForm.playerId);
         return n || undefined;
@@ -721,11 +867,17 @@ const submitCreateOrder = async () => {
     };
     orders.value = await ordersApi.createOrder(payload);
     closeCreateModal();
-    showToastMessage('订单创建成功，已加入待接单列表', 'success');
+    showToastMessage('订单创建成功，已扣除相应栗币', 'success');
     currentPage.value = 1;
-  } catch (error) {
+    const { useWalletStore } = await import('../stores/wallet')
+    await useWalletStore().refresh()
+  } catch (error: unknown) {
     console.error('创建订单失败:', error);
-    showToastMessage('创建订单失败，请稍后重试', 'error');
+    const msg = error instanceof Error ? error.message : '创建订单失败，请稍后重试'
+    showToastMessage(msg, 'error');
+    if (msg.includes('余额不足')) {
+      showToastMessage('栗币余额不足，请先充值', 'error')
+    }
   } finally {
     createSubmitting.value = false;
     isLoading.value = false;
@@ -758,14 +910,25 @@ const getServiceByNameSafe = (serviceName: string) => {
   return SERVICE_LIST.find((service) => service.name === serviceName);
 };
 
-// 处理取消订单
+// 处理取消订单 - 打开确认弹窗
 const handleCancelOrder = (orderId: string) => {
   cancelOrderId.value = orderId;
   cancelReason.value = '';
   showCancelModal.value = true;
 };
 
-// 确认取消订单
+// 处理申请退款 - 打开退款理由弹窗
+const handleRefundOrder = (orderId: string) => {
+  const order = orders.value.find(o => o.id === orderId);
+  if (order) {
+    refundOrderId.value = orderId;
+    refundReason.value = '';
+    refundAmount.value = order.amount;
+    showRefundModal.value = true;
+  }
+};
+
+// 【核心交互】确认取消订单 → 调用API → 刷新订单列表
 const confirmCancelOrder = async () => {
   if (!cancelOrderId.value) return;
   
@@ -780,6 +943,29 @@ const confirmCancelOrder = async () => {
   } catch (error) {
     console.error('取消订单失败:', error);
     showToastMessage('取消订单失败，请稍后重试', 'error');
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// 【核心交互】确认退款申请 → 调用API → Boss后台审核
+const confirmRefundOrder = async () => {
+  if (!refundOrderId.value) return;
+  
+  try {
+    isLoading.value = true;
+    showRefundModal.value = false;
+
+    const updatedOrders = await ordersApi.refundOrder({ 
+      orderId: refundOrderId.value, 
+      reason: refundReason.value || '用户申请退款' 
+    });
+    orders.value = updatedOrders;
+
+    showToastMessage('退款申请已提交，等待处理', 'success');
+  } catch (error) {
+    console.error('申请退款失败:', error);
+    showToastMessage('申请退款失败，请稍后重试', 'error');
   } finally {
     isLoading.value = false;
   }
@@ -816,8 +1002,8 @@ onMounted(() => {
 <style scoped>
 .orders-page {
   min-height: 100vh;
-  background-color: #111827;
-  color: #f3f4f6;
+  background-color: var(--m-bg);
+  color: var(--m-text);
 }
 
 .page-content {
@@ -836,87 +1022,95 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.5);
+  margin-bottom: 1.5rem;
 }
 
 .page-title {
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
   margin: 0;
-  color: #f3f4f6;
+  color: var(--m-text);
+  letter-spacing: -0.01em;
 }
 
 .create-order-btn {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background-color: #3b82f6;
+  padding: 0.65rem 1.25rem;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: white;
   border: none;
-  border-radius: 0.5rem;
-  font-weight: 500;
+  border-radius: 12px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.85rem;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
 
 .create-order-btn:hover {
-  background-color: #2563eb;
   transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
 }
 
 .create-order-btn i {
-  font-size: 1rem;
+  font-size: 0.85rem;
 }
 
 /* 筛选和搜索区域 */
 .filter-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
   align-items: center;
+  padding: 0.875rem 1rem;
+  background: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: 14px;
 }
 
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .filter-label {
-  color: #9ca3af;
-  font-size: 0.875rem;
+  color: var(--m-text-muted);
+  font-size: 0.75rem;
   white-space: nowrap;
+  font-weight: 600;
 }
 
 .filter-select {
-  padding: 0.5rem 1rem;
-  padding-right: 2.5rem;
-  background-color: #1f2937;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  border-radius: 0.5rem;
-  color: #f3f4f6;
-  font-size: 0.875rem;
+  padding: 0.45rem 0.75rem;
+  padding-right: 2.2rem;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border-light);
+  border-radius: 10px;
+  color: var(--m-text);
+  font-size: 0.8rem;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235C5C5C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  background-size: 1rem;
+  background-position: right 0.5rem center;
+  background-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .filter-select:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
 }
 
 .search-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   margin-left: auto;
 }
 
@@ -927,111 +1121,124 @@ onMounted(() => {
 }
 
 .search-input {
-  padding: 0.5rem 1rem;
-  padding-left: 2.5rem;
-  padding-right: 2.5rem;
-  background-color: #1f2937;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  border-radius: 0.5rem;
-  color: #f3f4f6;
-  font-size: 0.875rem;
-  width: 280px;
+  padding: 0.45rem 1rem;
+  padding-left: 2.2rem;
+  padding-right: 2.2rem;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border-light);
+  border-radius: 10px;
+  color: var(--m-text);
+  font-size: 0.8rem;
+  width: 240px;
+  transition: all 0.2s ease;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
 }
 
 .search-input::placeholder {
-  color: #6b7280;
+  color: var(--m-text-muted);
 }
 
 .search-icon {
   position: absolute;
-  left: 0.75rem;
-  color: #9ca3af;
+  left: 0.65rem;
+  color: var(--m-text-muted);
+  font-size: 0.8rem;
 }
 
 .clear-search {
   position: absolute;
-  right: 0.75rem;
+  right: 0.5rem;
   background: none;
   border: none;
-  color: #9ca3af;
+  color: var(--m-text-muted);
   cursor: pointer;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.4rem;
+  height: 1.4rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .clear-search:hover {
-  background-color: rgba(55, 65, 81, 0.3);
-  color: #f3f4f6;
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text);
 }
 
 .search-btn {
-  padding: 0.5rem 1rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 0.5rem;
-  font-weight: 500;
+  padding: 0.45rem 0.9rem;
+  background-color: var(--m-accent);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .search-btn:hover {
-  background-color: rgba(59, 130, 246, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
 
 /* 订单统计 */
 .order-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
 .stat-item {
   flex: 1;
-  min-width: 120px;
-  background-color: #1f2937;
-  border-radius: 0.75rem;
-  padding: 1rem;
+  min-width: 100px;
+  background-color: var(--m-bg-secondary);
+  border-radius: 14px;
+  padding: 1.05rem 1rem;
   text-align: center;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  transition: transform 0.3s ease;
+  border: 1px solid var(--m-border);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
 }
 
 .stat-item:hover {
   transform: translateY(-3px);
+  border-color: var(--m-accent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 .stat-value {
   display: block;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.2rem;
+  color: var(--m-accent);
+  font-family: var(--m-font-display);
+  letter-spacing: -0.02em;
 }
 
 .stat-label {
-  color: #9ca3af;
-  font-size: 0.875rem;
+  color: var(--m-text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
 }
 
 /* 订单表格 */
 .orders-table-container {
   overflow-x: auto;
-  background-color: #1f2937;
-  border-radius: 1rem;
-  border: 1px solid rgba(55, 65, 81, 0.5);
+  background-color: var(--m-bg-secondary);
+  border-radius: 14px;
+  border: 1px solid var(--m-border);
   margin-bottom: 1.5rem;
 }
 
@@ -1043,35 +1250,37 @@ onMounted(() => {
 
 .orders-table th,
 .orders-table td {
-  padding: 1rem;
+  padding: 0.95rem 1rem;
   text-align: left;
 }
 
 .orders-table th {
-  background-color: rgba(17, 24, 37, 0.7);
-  color: #d1d5db;
-  font-weight: 600;
-  font-size: 0.875rem;
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text-muted);
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
 .orders-table th:first-child {
-  border-radius: 1rem 0 0 0;
+  border-radius: 14px 0 0 0;
 }
 
 .orders-table th:last-child {
-  border-radius: 0 1rem 0 0;
+  border-radius: 0 14px 0 0;
 }
 
 .order-row {
-  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
-  transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--m-border-light);
+  transition: background-color 0.15s ease;
 }
 
 .order-row:hover {
-  background-color: rgba(55, 65, 81, 0.1);
+  background-color: rgba(37, 99, 235, 0.02);
 }
 
 .order-row:last-child {
@@ -1080,28 +1289,59 @@ onMounted(() => {
 
 /* 表格列样式 */
 .order-id-col {
-  font-family: monospace;
-  color: #9ca3af;
-  width: 120px;
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+  color: var(--m-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  width: 160px;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.order-id-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-id-btn {
+  opacity: 0;
+  transition: opacity var(--m-transition);
+  color: var(--m-text-muted);
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.order-row:hover .copy-id-btn {
+  opacity: 1;
+}
+
+.copy-id-btn:hover {
+  color: var(--m-accent);
+  background: var(--m-accent-light);
 }
 
 .game-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .game-icon {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.5rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 10px;
   object-fit: cover;
+  border: 1px solid var(--m-border-light);
 }
 
 .player-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .player-avatar {
@@ -1109,90 +1349,134 @@ onMounted(() => {
   height: 2rem;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid var(--m-border-light);
 }
 
 .no-player {
-  color: #9ca3af;
+  color: var(--m-text-muted);
   font-style: italic;
+  font-size: 0.85rem;
 }
 
 .status-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 100px;
+  font-size: 0.7rem;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .status-pending {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.08);
+  color: #d97706;
 }
+.status-pending::before { background: #d97706; }
 
 .status-ongoing {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background-color: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
 }
+.status-ongoing::before { background: #2563eb; animation: pulseDot 1.5s infinite; }
 
 .status-completion-pending {
-  background-color: rgba(168, 85, 247, 0.12);
-  color: #c084fc;
+  background-color: rgba(6, 182, 212, 0.08);
+  color: #0891b2;
 }
+.status-completion-pending::before { background: #0891b2; animation: pulseDot 1.5s infinite; }
 
 .status-completed {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  background-color: rgba(16, 185, 129, 0.08);
+  color: #059669;
 }
+.status-completed::before { background: #059669; }
 
 .status-cancelled {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+}
+.status-cancelled::before { background: #dc2626; }
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .order-amount-col {
-  font-weight: 600;
-  color: #3b82f6;
+  font-weight: 700;
+  color: var(--m-accent);
+  font-family: var(--m-font-display);
 }
 
 .order-date-col {
-  color: #9ca3af;
+  color: var(--m-text-muted);
+  font-size: 0.8rem;
   width: 140px;
 }
 
 .action-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
-.view-btn,
-.cancel-btn {
-  width: 2rem;
+.view-btn, .cancel-btn, .refund-btn {
   height: 2rem;
-  border-radius: 0.375rem;
+  padding: 0 0.75rem;
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.4rem;
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .view-btn {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background-color: rgba(37, 99, 235, 0.06);
+  color: var(--m-accent);
+  border: 1px solid rgba(37, 99, 235, 0.1);
 }
 
 .view-btn:hover {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--m-accent);
+  color: white;
+  border-color: var(--m-accent);
 }
 
 .cancel-btn {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.06);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.1);
 }
 
 .cancel-btn:hover {
-  background-color: rgba(239, 68, 68, 0.2);
+  background-color: #dc2626;
+  color: white;
+  border-color: #dc2626;
+}
+
+.refund-btn {
+  background-color: rgba(245, 158, 11, 0.06);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.1);
+}
+
+.refund-btn:hover {
+  background-color: #d97706;
+  color: white;
+  border-color: #d97706;
 }
 
 /* 无订单状态 */
@@ -1208,51 +1492,38 @@ onMounted(() => {
 
 .no-orders-content i {
   font-size: 3rem;
-  color: #374151;
+  color: var(--m-border);
   margin-bottom: 1rem;
 }
 
 .no-orders-content p {
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   margin-bottom: 1.5rem;
 }
 
 .reset-filters {
   padding: 0.5rem 1rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 0.5rem;
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
 }
 
 .reset-filters:hover {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--m-accent);
+  color: white;
 }
 
-/* 加载状态 */
-.loading-orders {
-  padding: 4rem 2rem;
-  text-align: center;
-}
-
-.loading-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-.loading-content i {
-  font-size: 2rem;
-  color: #3b82f6;
-  animation: spin 1s linear infinite;
+/* 骨架屏 */
+.skeleton-cell-wrap {
+  padding: 0;
 }
 
 .loading-content p {
-  color: #9ca3af;
+  color: var(--m-text-secondary);
 }
 
 /* 分页控件 */
@@ -1269,17 +1540,18 @@ onMounted(() => {
   align-items: center;
   gap: 0.25rem;
   padding: 0.5rem 1rem;
-  background-color: #1f2937;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  border-radius: 0.5rem;
-  color: #f3f4f6;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  color: var(--m-text);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
   font-size: 0.875rem;
 }
 
 .page-btn:hover:not(:disabled) {
-  background-color: rgba(55, 65, 81, 0.3);
+  background-color: var(--m-bg-tertiary);
+  border-color: var(--m-accent);
 }
 
 .page-btn:disabled {
@@ -1299,33 +1571,34 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #1f2937;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  border-radius: 0.5rem;
-  color: #f3f4f6;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  color: var(--m-text);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
   font-size: 0.875rem;
 }
 
 .page-number:hover:not(.active) {
-  background-color: rgba(55, 65, 81, 0.3);
+  background-color: var(--m-bg-tertiary);
+  border-color: var(--m-accent);
 }
 
 .page-number.active {
-  background-color: #3b82f6;
-  border-color: #3b82f6;
+  background-color: var(--m-accent);
+  border-color: var(--m-accent);
   color: white;
   font-weight: 600;
 }
 
 .ellipsis {
-  color: #6b7280;
+  color: var(--m-text-muted);
   padding: 0 0.5rem;
 }
 
 .page-info {
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   font-size: 0.875rem;
   margin-left: 1rem;
 }
@@ -1336,22 +1609,22 @@ onMounted(() => {
   bottom: 2rem;
   right: 2rem;
   padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
   color: white;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   z-index: 100;
   animation: fadeInUp 0.3s ease forwards;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--m-shadow-lg);
 }
 
 .toast.success {
-  background-color: #10b981;
+  background-color: var(--m-success);
 }
 
 .toast.error {
-  background-color: #ef4444;
+  background-color: var(--m-danger);
 }
 
 .toast i {
@@ -1362,7 +1635,7 @@ onMounted(() => {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -1372,17 +1645,17 @@ onMounted(() => {
 }
 
 .modal {
-  background-color: #1f2937;
-  border-radius: 1rem;
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
   width: 100%;
   max-width: 500px;
-  border: 1px solid rgba(55, 65, 81, 0.5);
+  border: 1px solid var(--m-border);
   animation: scaleIn 0.3s ease;
 }
 
 .modal-header {
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  border-bottom: 1px solid var(--m-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1392,13 +1665,13 @@ onMounted(() => {
   font-size: 1.25rem;
   font-weight: 600;
   margin: 0;
-  color: #f3f4f6;
+  color: var(--m-text);
 }
 
 .close-modal {
   background: none;
   border: none;
-  color: #9ca3af;
+  color: var(--m-text-muted);
   cursor: pointer;
   width: 2rem;
   height: 2rem;
@@ -1406,12 +1679,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
 }
 
 .close-modal:hover {
-  background-color: rgba(55, 65, 81, 0.3);
-  color: #f3f4f6;
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text);
 }
 
 .modal-body {
@@ -1420,7 +1693,7 @@ onMounted(() => {
 
 .modal-body p {
   margin: 0 0 1rem 0;
-  color: #d1d5db;
+  color: var(--m-text-secondary);
 }
 
 .form-grid-create {
@@ -1428,6 +1701,7 @@ onMounted(() => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
 }
+
 .form-grid-create .search-input,
 .form-grid-create .filter-select {
   width: 100%;
@@ -1443,90 +1717,106 @@ onMounted(() => {
 .co-backdrop {
   padding: 1rem;
 }
+
 .co-modal {
   max-width: 720px;
 }
+
 .co-layout {
   display: grid;
   grid-template-columns: minmax(0, 200px) 1fr;
   gap: 1.25rem;
   align-items: start;
 }
+
 @media (max-width: 700px) {
   .co-layout {
     grid-template-columns: 1fr;
   }
 }
+
 .co-aside {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
+
 .co-game-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  border-radius: 0.75rem;
+  background: var(--m-bg-tertiary);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius);
   padding: 0.75rem;
   text-align: center;
 }
+
 .co-game-img {
   width: 100%;
   height: 100px;
   object-fit: cover;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
 }
+
 .co-game-name {
   margin: 0.5rem 0 0.25rem;
   font-weight: 600;
-  color: #f3f4f6;
+  color: var(--m-text);
   font-size: 0.9rem;
 }
+
 .co-mini-label {
   display: block;
   font-size: 0.7rem;
-  color: #9ca3af;
+  color: var(--m-text-muted);
   margin: 0.5rem 0 0.25rem;
   text-align: left;
 }
+
 .co-game-select {
   width: 100%;
 }
+
 .co-hall-link {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
   font-size: 0.8rem;
-  color: #60a5fa;
+  color: var(--m-accent);
   text-decoration: none;
   padding: 0.5rem;
-  border-radius: 0.5rem;
-  border: 1px dashed rgba(96, 165, 250, 0.35);
+  border-radius: var(--m-radius-sm);
+  border: 1px dashed var(--m-border);
+  transition: all var(--m-transition);
 }
+
 .co-hall-link:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: var(--m-accent-light);
 }
+
 .co-hint {
   margin: 0 0 0.75rem;
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--m-text-muted);
   line-height: 1.45;
 }
+
 .co-field-label {
   display: block;
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--m-text-secondary);
   margin: 0.65rem 0 0.35rem;
 }
+
 .co-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
 }
+
 .co-chip {
-  border: 1px solid rgba(71, 85, 105, 0.7);
-  background: rgba(30, 41, 59, 0.5);
-  color: #e5e7eb;
+  border: 1px solid var(--m-border);
+  background: var(--m-bg-secondary);
+  color: var(--m-text);
   border-radius: 999px;
   padding: 0.35rem 0.75rem;
   font-size: 0.8rem;
@@ -1535,49 +1825,59 @@ onMounted(() => {
   flex-direction: column;
   align-items: flex-start;
   line-height: 1.2;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color var(--m-transition), background var(--m-transition);
 }
+
 .co-chip:hover {
-  border-color: rgba(96, 165, 250, 0.5);
+  border-color: var(--m-accent);
 }
+
 .co-chip.active {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.15);
+  border-color: var(--m-accent);
+  background: var(--m-accent-light);
 }
+
 .co-chip-sub {
   font-size: 0.65rem;
-  color: #94a3b8;
+  color: var(--m-text-muted);
   margin-top: 0.15rem;
 }
+
 .co-amount-row {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
   align-items: center;
 }
+
 .co-amt-pill {
-  border: 1px solid rgba(71, 85, 105, 0.7);
-  background: #111827;
-  color: #d1d5db;
-  border-radius: 0.5rem;
+  border: 1px solid var(--m-border);
+  background: var(--m-bg-secondary);
+  color: var(--m-text);
+  border-radius: var(--m-radius-sm);
   padding: 0.35rem 0.65rem;
   font-size: 0.8rem;
   cursor: pointer;
+  transition: all var(--m-transition);
 }
+
 .co-amt-pill.active {
-  border-color: #10b981;
-  color: #6ee7b7;
-  background: rgba(16, 185, 129, 0.12);
+  border-color: var(--m-success);
+  color: var(--m-success);
+  background: var(--m-success-light);
 }
+
 .co-amount-input {
   width: 7rem;
   min-width: 0;
 }
+
 .co-player-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
 }
+
 @media (max-width: 500px) {
   .co-player-row {
     grid-template-columns: 1fr;
@@ -1585,34 +1885,87 @@ onMounted(() => {
 }
 
 .cancel-warning {
-  color: #f59e0b;
+  color: var(--m-warning);
   font-size: 0.875rem;
   padding: 0.75rem;
-  background-color: rgba(245, 158, 11, 0.1);
-  border-radius: 0.5rem;
+  background-color: var(--m-warning-light);
+  border-radius: var(--m-radius-sm);
   margin-bottom: 1.5rem;
 }
 
 .cancel-reason {
   width: 100%;
   padding: 0.75rem;
-  background-color: rgba(17, 24, 37, 0.5);
-  border: 1px solid #374151;
-  border-radius: 0.5rem;
-  color: #f3f4f6;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  color: var(--m-text);
   font-family: inherit;
   resize: vertical;
 }
 
 .cancel-reason:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
+}
+
+.refund-amount {
+  margin-bottom: 1rem;
+}
+
+.refund-amount-label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--m-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.refund-amount-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--m-accent);
+  background-color: var(--m-bg-tertiary);
+  padding: 0.75rem;
+  border-radius: var(--m-radius-sm);
+  border: 1px solid var(--m-border);
+}
+
+.refund-reason {
+  margin-bottom: 1rem;
+}
+
+.refund-reason-label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--m-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.refund-reason-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text);
+  font-size: 0.875rem;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235C5C5C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+}
+
+.refund-reason-select:focus {
+  outline: none;
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
 }
 
 .modal-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid rgba(55, 65, 81, 0.3);
+  border-top: 1px solid var(--m-border);
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
@@ -1620,31 +1973,40 @@ onMounted(() => {
 
 .modal-btn {
   padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--m-transition);
   border: none;
   font-size: 0.875rem;
 }
 
 .modal-btn.cancel {
-  background-color: rgba(55, 65, 81, 0.3);
-  color: #d1d5db;
+  background-color: var(--m-bg-tertiary);
+  color: var(--m-text);
 }
 
 .modal-btn.cancel:hover {
-  background-color: rgba(55, 65, 81, 0.5);
-  color: #f3f4f6;
+  background-color: var(--m-border);
+  color: var(--m-text);
 }
 
 .modal-btn.confirm {
-  background-color: #ef4444;
+  background-color: var(--m-danger);
   color: white;
 }
 
 .modal-btn.confirm:hover {
-  background-color: #dc2626;
+  background-color: #b91c1c;
+}
+
+.modal-btn.confirm.refund-confirm {
+  background-color: var(--m-warning);
+  color: white;
+}
+
+.modal-btn.confirm.refund-confirm:hover {
+  background-color: #b45309;
 }
 
 /* 动画 */
@@ -1680,16 +2042,16 @@ onMounted(() => {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .search-group {
     margin-left: 0;
     width: 100%;
   }
-  
+
   .search-input {
     width: 100%;
   }
-  
+
   .page-info {
     margin-left: 0;
     margin-top: 1rem;
@@ -1702,24 +2064,54 @@ onMounted(() => {
   }
 }
 
-/* 滚动条样式 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.order-coin-balance {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  margin: 0 1.5rem;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(6, 182, 212, 0.08));
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  font-size: 0.85rem;
+  color: var(--m-text-secondary);
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+.order-coin-balance i {
+  color: #fbbf24;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
+.order-coin-balance strong {
+  color: var(--m-text);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+.coin-sep {
+  color: var(--m-border);
+}
+
+.coin-warn {
+  color: #f87171;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.coin-recharge-link {
+  color: var(--m-accent);
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 0.25rem;
+}
+
+.coin-recharge-link:hover {
+  text-decoration: underline;
+}
+
+.coin-ok {
+  color: #34d399;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 </style>
     

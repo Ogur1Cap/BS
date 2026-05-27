@@ -143,17 +143,36 @@ const emit = defineEmits(['book-now', 'view-detail']);
 
 <style scoped>
 .player-card {
-  background-color: #1e293b;
-  border-radius: 1rem;
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
   padding: 1.5rem;
-  border: 1px solid rgba(55, 65, 81, 0.5);
-  transition: all 0.3s ease;
+  border: 1px solid var(--m-border);
+  transition: all var(--m-transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.player-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
 }
 
 .player-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-2px);
+  box-shadow: var(--m-shadow-md);
+  border-color: var(--m-accent);
+}
+
+.player-card:hover::before {
+  transform: scaleY(1);
 }
 
 /* 头部信息（共用样式） */
@@ -169,7 +188,7 @@ const emit = defineEmits(['book-now', 'view-detail']);
   height: 4.5rem;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  border: 2px solid var(--m-accent-light);
 }
 
 .header-info {
@@ -186,7 +205,7 @@ const emit = defineEmits(['book-now', 'view-detail']);
 .player-name {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #f3f4f6;
+  color: var(--m-text);
   margin: 0;
 }
 
@@ -211,7 +230,7 @@ const emit = defineEmits(['book-now', 'view-detail']);
 }
 
 .order-count {
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   font-size: 0.8rem;
 }
 
@@ -233,12 +252,12 @@ const emit = defineEmits(['book-now', 'view-detail']);
   display: flex;
   justify-content: space-between;
   padding: 0.5rem 0;
-  border-top: 1px solid rgba(55, 65, 81, 0.3);
-  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  border-top: 1px solid var(--m-border);
+  border-bottom: 1px solid var(--m-border);
 }
 
 .stat-item {
-  color: #e2e8f0;
+  color: var(--m-text);
   font-size: 0.9rem;
 }
 
@@ -251,7 +270,7 @@ const emit = defineEmits(['book-now', 'view-detail']);
 
 .section {
   padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  border-bottom: 1px solid var(--m-border);
 }
 
 .section:last-child {
@@ -260,7 +279,7 @@ const emit = defineEmits(['book-now', 'view-detail']);
 
 .section h4 {
   margin: 0 0 0.75rem 0;
-  color: #f3f4f6;
+  color: var(--m-text);
   font-size: 1rem;
 }
 
@@ -272,8 +291,8 @@ const emit = defineEmits(['book-now', 'view-detail']);
 
 .skill-tag {
   padding: 0.25rem 0.75rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
   border-radius: 999px;
   font-size: 0.85rem;
 }
@@ -295,25 +314,26 @@ const emit = defineEmits(['book-now', 'view-detail']);
 .stat-box {
   text-align: center;
   padding: 0.75rem;
-  background-color: rgba(15, 23, 42, 0.5);
-  border-radius: 0.5rem;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
 }
 
 .stat-label {
   display: block;
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   margin-bottom: 0.25rem;
 }
 
 .stat-value {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #f3f4f6;
+  color: var(--m-text);
 }
 
 .intro {
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   line-height: 1.6;
   margin: 0;
 }
@@ -328,21 +348,21 @@ const emit = defineEmits(['book-now', 'view-detail']);
 .btn {
   flex: 1;
   padding: 0.75rem;
-  border-radius: 0.5rem;
+  border-radius: var(--m-radius-sm);
   font-weight: 500;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--m-transition);
   border: none;
 }
 
 .book-btn {
-  background-color: #3b82f6;
+  background-color: var(--m-accent);
   color: white;
 }
 
 .book-btn:hover:not(:disabled) {
-  background-color: #2563eb;
+  background-color: var(--m-accent-hover);
 }
 
 .book-btn:disabled {
@@ -355,13 +375,14 @@ const emit = defineEmits(['book-now', 'view-detail']);
 }
 
 .detail-btn {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
+  border: 1px solid var(--m-accent);
 }
 
 .detail-btn:hover {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--m-accent);
+  color: white;
 }
 
 /* 响应式调整 */

@@ -1,4 +1,5 @@
 import { apiRequest } from './request'
+import { API_ENDPOINTS } from './endpoints'
 
 export interface ViolationRecord {
   id: string
@@ -19,69 +20,51 @@ export interface ViolationRecord {
 }
 
 export const violationApi = {
-  /**
-   * 用户获取个人违规记录
-   */
   getMyViolations: async (): Promise<ViolationRecord[]> => {
     return apiRequest<ViolationRecord[]>({
       method: 'GET',
-      path: '/api/violation/my',
+      path: API_ENDPOINTS.violation.my,
       auth: true
     })
   },
 
-  /**
-   * 用户提交违规申诉
-   */
   submitAppeal: async (id: string, reason: string): Promise<void> => {
     return apiRequest<void>({
       method: 'POST',
-      path: `/api/violation/appeal/${id}`,
+      path: API_ENDPOINTS.violation.appeal(id),
       body: { reason },
       auth: true
     })
   },
 
-  /**
-   * BOSS获取待处理预警
-   */
   getPendingViolations: async (): Promise<ViolationRecord[]> => {
     return apiRequest<ViolationRecord[]>({
       method: 'GET',
-      path: '/api/violation/boss/pending',
+      path: API_ENDPOINTS.violation.bossPending,
       auth: true
     })
   },
 
-  /**
-   * BOSS获取申诉列表
-   */
   getAppealedViolations: async (): Promise<ViolationRecord[]> => {
     return apiRequest<ViolationRecord[]>({
       method: 'GET',
-      path: '/api/violation/boss/appealed',
+      path: API_ENDPOINTS.violation.bossAppealed,
       auth: true
     })
   },
 
-  /**
-   * BOSS获取所有违规记录
-   */
   getAllViolations: async (): Promise<ViolationRecord[]> => {
     return apiRequest<ViolationRecord[]>({
       method: 'GET',
-      path: '/api/violation/boss/all',
+      path: API_ENDPOINTS.violation.bossAll,
       auth: true
     })
   },
 
-  /**
-   * BOSS处理违规/申诉
-   */
   handleViolation: async (id: string, action: string, notes: string): Promise<void> => {
     return apiRequest<void>({
       method: 'POST',
-      path: `/api/violation/boss/handle/${id}`,
+      path: API_ENDPOINTS.violation.bossHandle(id),
       body: { action, notes },
       auth: true
     })

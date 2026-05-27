@@ -1,3 +1,14 @@
+<!--
+  【游戏地图页面】零号大坝交互式地图工具
+  功能：
+    - 分层显示：普通模式 / 机密模式 / 绝密模式 × 1~4层
+    - Canvas渲染：地图图片缩放、平移（鼠标拖拽+滚轮）
+    - 官方点位：资源点、出生点、撤离点、Boss点、载具点
+    - 自定义标记：用户在地图上添加标记，支持名称和备注
+    - 搜索定位：输入点位名自动跳转
+    - 随机事件预览：开启时显示计划突袭/武装押运/协议交火等事件区域
+  交互：左键拖拽平移、滚轮缩放、点击添加标记
+-->
 <template>
   <div class="game-map-page">
     <Header :current-user="currentUser" :user-avatar="userAvatar" @logout="handleLogout" />
@@ -800,8 +811,8 @@ onUnmounted(() => {
 }
 .game-map-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
-  color: #e5e7eb;
+  background-color: var(--m-bg);
+  color: var(--m-text);
 }
 .container {
   width: 100%;
@@ -810,52 +821,71 @@ onUnmounted(() => {
   padding: 0 1.2rem;
 }
 .gm-main {
-  padding: 1.4rem 0 3rem;
+  padding: 2.5rem 0 4rem;
 }
 .gm-workspace {
   display: grid;
   grid-template-columns: 1fr 350px;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 .gm-map-col {
   min-width: 0;
 }
 .gm-card {
-  background: rgba(2, 6, 23, 0.35);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 14px;
-  padding: 0.9rem;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius);
+  padding: 1rem;
+  transition: all var(--m-transition);
+  position: relative;
+  overflow: hidden;
+}
+.gm-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--m-transition);
+}
+.gm-card:hover::before {
+  transform: scaleY(1);
 }
 .gm-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.8rem;
-  gap: 0.8rem;
+  margin-bottom: 1rem;
+  gap: 1rem;
 }
 .gm-toolbar-group {
   min-width: 0;
 }
 .gm-title {
-  font-weight: 800;
-  color: #f8fafc;
+  font-weight: 700;
+  color: var(--m-text);
+  font-size: 1.1rem;
 }
 .gm-subtitle {
-  margin-top: 0.15rem;
-  color: #94a3b8;
+  margin-top: 0.25rem;
+  color: var(--m-text-secondary);
   font-size: 0.9rem;
 }
 .gm-toolbar-right {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 .gm-scale-pill {
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
-  background: #0b1220;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  color: #cbd5e1;
+  background-color: var(--m-bg);
+  border: 1px solid var(--m-border);
+  color: var(--m-text);
   display: flex;
   gap: 0.45rem;
   font-size: 0.9rem;
@@ -863,11 +893,16 @@ onUnmounted(() => {
 .gm-icon-btn {
   width: 36px;
   height: 36px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 10px;
-  background: #0b1220;
-  color: #cbd5e1;
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
+  background-color: var(--m-bg);
+  color: var(--m-text);
   cursor: pointer;
+  transition: all var(--m-transition);
+}
+.gm-icon-btn:hover:not(:disabled) {
+  border-color: var(--m-accent);
+  color: var(--m-accent);
 }
 .gm-icon-btn:disabled {
   opacity: 0.5;
@@ -876,30 +911,36 @@ onUnmounted(() => {
 .gm-tabs-row {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
-  gap: 0.7rem;
-  margin-bottom: 0.8rem;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 .gm-tab-wrap,
 .gm-floor-wrap {
   display: flex;
-  gap: 0.45rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 .gm-tab-btn,
 .gm-floor-btn {
-  border: 1px solid rgba(148, 163, 184, 0.26);
-  background: #0b1220;
-  color: #cbd5e1;
-  border-radius: 10px;
+  border: 1px solid var(--m-border);
+  background-color: var(--m-bg);
+  color: var(--m-text);
+  border-radius: var(--m-radius-sm);
   padding: 0.45rem 0.7rem;
   cursor: pointer;
   font-size: 0.88rem;
+  transition: all var(--m-transition);
+}
+.gm-tab-btn:hover,
+.gm-floor-btn:hover {
+  border-color: var(--m-accent);
+  color: var(--m-accent);
 }
 .gm-tab-btn.active,
 .gm-floor-btn.active {
-  background: #2563eb;
-  color: #fff;
-  border-color: rgba(59, 130, 246, 0.6);
+  background-color: var(--m-accent);
+  color: white;
+  border-color: var(--m-accent);
 }
 .gm-tab-btn-small {
   padding: 0.4rem 0.6rem;
@@ -907,9 +948,10 @@ onUnmounted(() => {
 .gm-canvas-wrap {
   position: relative;
   height: 680px;
-  border-radius: 14px;
+  border-radius: var(--m-radius);
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid var(--m-border);
+  background-color: var(--m-bg);
 }
 .gm-canvas {
   width: 100%;
@@ -926,34 +968,36 @@ onUnmounted(() => {
 .gm-selected {
   position: absolute;
   top: 14px;
-  border-radius: 10px;
+  border-radius: var(--m-radius-sm);
   padding: 0.55rem 0.75rem;
   font-size: 0.88rem;
+  background-color: var(--m-bg-secondary);
+  border: 1px solid var(--m-border);
 }
 .gm-readout {
   left: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(2, 6, 23, 0.85);
+  color: var(--m-text);
 }
 .gm-selected {
   right: 14px;
-  border: 1px solid rgba(59, 130, 246, 0.35);
-  background: rgba(37, 99, 235, 0.2);
+  border-color: var(--m-accent);
+  color: var(--m-accent);
 }
 .gm-hint {
-  margin-top: 0.7rem;
-  color: #94a3b8;
+  margin-top: 0.75rem;
+  color: var(--m-text-secondary);
   font-size: 0.9rem;
 }
 .gm-side {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 1rem;
 }
 .gm-card-title {
-  color: #f8fafc;
-  font-weight: 800;
+  color: var(--m-text);
+  font-weight: 700;
   margin-bottom: 0.75rem;
+  font-size: 1rem;
 }
 .gm-card-title-row {
   display: flex;
@@ -970,17 +1014,22 @@ onUnmounted(() => {
   gap: 0.5rem;
 }
 .gm-item-btn {
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  background: #0b1220;
-  color: #e5e7eb;
-  border-radius: 9px;
+  border: 1px solid var(--m-border);
+  background-color: var(--m-bg);
+  color: var(--m-text);
+  border-radius: var(--m-radius-sm);
   padding: 0.5rem 0.65rem;
   cursor: pointer;
   text-align: left;
+  transition: all var(--m-transition);
+}
+.gm-item-btn:hover {
+  border-color: var(--m-accent);
 }
 .gm-item-btn.active {
-  border-color: rgba(239, 68, 68, 0.45);
-  background: rgba(239, 68, 68, 0.12);
+  border-color: var(--m-accent);
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
 }
 .gm-marker-item {
   display: flex;
@@ -988,49 +1037,59 @@ onUnmounted(() => {
 }
 .gm-del-btn {
   width: 32px;
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  background: rgba(239, 68, 68, 0.12);
-  color: #fecaca;
-  border-radius: 8px;
+  border: 1px solid var(--m-border);
+  background-color: var(--m-bg);
+  color: var(--m-text);
+  border-radius: var(--m-radius-sm);
   cursor: pointer;
+  transition: all var(--m-transition);
+}
+.gm-del-btn:hover {
+  border-color: #ef4444;
+  color: #fecaca;
+  background-color: rgba(239, 68, 68, 0.1);
 }
 .gm-switch-line {
   display: flex;
   align-items: center;
   gap: 0.55rem;
   margin-bottom: 0.55rem;
-  color: #cbd5e1;
+  color: var(--m-text);
 }
 .gm-row {
   display: flex;
   justify-content: space-between;
   gap: 0.8rem;
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   padding-top: 0.6rem;
-  border-top: 1px dashed rgba(148, 163, 184, 0.2);
+  border-top: 1px solid var(--m-border);
   margin-top: 0.6rem;
 }
 .gm-row b {
-  color: #f1f5f9;
+  color: var(--m-text);
 }
 .gm-link-btn {
   border: none;
   background: transparent;
-  color: #60a5fa;
+  color: var(--m-accent);
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
+  transition: color var(--m-transition);
+}
+.gm-link-btn:hover:not(:disabled) {
+  color: var(--m-accent-hover);
 }
 .gm-link-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 .gm-empty {
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   font-size: 0.88rem;
 }
 .gm-edit {
   margin-top: 0.7rem;
-  border-top: 1px dashed rgba(148, 163, 184, 0.2);
+  border-top: 1px solid var(--m-border);
   padding-top: 0.7rem;
 }
 .gm-field {
@@ -1039,16 +1098,22 @@ onUnmounted(() => {
   margin-top: 0.5rem;
 }
 .gm-field span {
-  color: #94a3b8;
+  color: var(--m-text-secondary);
 }
 .gm-input,
 .gm-textarea {
-  border: 1px solid rgba(148, 163, 184, 0.26);
-  border-radius: 9px;
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius-sm);
   padding: 0.55rem 0.65rem;
   outline: none;
-  background: #0b1220;
-  color: #e5e7eb;
+  background-color: var(--m-bg);
+  color: var(--m-text);
+  transition: border-color var(--m-transition);
+}
+.gm-input:focus,
+.gm-textarea:focus {
+  border-color: var(--m-accent);
+  box-shadow: 0 0 0 3px var(--m-accent-light);
 }
 @media (max-width: 1080px) {
   .gm-workspace {

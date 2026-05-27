@@ -77,24 +77,38 @@ const featuresList = computed(() => {
 
 <style scoped>
 .service-package-card {
-  background-color: #1e293b;
-  border-radius: 1rem;
+  background-color: var(--m-bg-secondary);
+  border-radius: var(--m-radius);
   overflow: hidden;
-  border: 1px solid rgba(59, 130, 246, 0.1);
-  transition: all 0.3s ease;
+  border: 1px solid var(--m-border);
+  transition: all var(--m-transition);
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
+}
+
+.service-package-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--m-accent);
+  transition: all var(--m-transition);
 }
 
 .service-package-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-  border-color: rgba(59, 130, 246, 0.3);
+  transform: translateY(-2px);
+  box-shadow: var(--m-shadow-md);
+  border-color: var(--m-accent);
 }
 
+
+
 .service-package-card:hover .package-icon {
-  background-color: #3b82f6;
+  background-color: var(--m-accent);
   color: white;
 }
 
@@ -102,20 +116,20 @@ const featuresList = computed(() => {
 .package-header {
   position: relative;
   padding: 1.5rem;
-  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+  border-bottom: 1px solid var(--m-border);
 }
 
 .package-icon {
   width: 3.5rem;
   height: 3.5rem;
-  border-radius: 0.75rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  border-radius: var(--m-radius-sm);
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  transition: all 0.3s ease;
+  transition: all var(--m-transition);
 }
 
 .package-popular {
@@ -143,12 +157,12 @@ const featuresList = computed(() => {
 .package-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: white;
+  color: var(--m-text);
   margin-bottom: 0.75rem;
 }
 
 .package-description {
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   font-size: 0.9375rem;
   margin-bottom: 1.5rem;
 }
@@ -163,7 +177,7 @@ const featuresList = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #e2e8f0;
+  color: var(--m-text);
   font-size: 0.875rem;
 }
 
@@ -175,7 +189,7 @@ const featuresList = computed(() => {
 /* 底部样式 */
 .package-footer {
   padding: 1.5rem;
-  border-top: 1px solid rgba(59, 130, 246, 0.1);
+  border-top: 1px solid var(--m-border);
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -185,12 +199,12 @@ const featuresList = computed(() => {
   display: flex;
   align-items: baseline;
   gap: 0.25rem;
-  color: white;
+  color: var(--m-text);
 }
 
 .currency {
   font-size: 1rem;
-  color: #94a3b8;
+  color: var(--m-text-secondary);
 }
 
 .amount {
@@ -199,29 +213,29 @@ const featuresList = computed(() => {
 }
 
 .duration {
-  color: #94a3b8;
+  color: var(--m-text-secondary);
   font-size: 0.875rem;
 }
 
 .select-btn {
   width: 100%;
   padding: 0.75rem;
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid #3b82f6;
-  border-radius: 0.5rem;
+  background-color: var(--m-accent-light);
+  color: var(--m-accent);
+  border: 1px solid var(--m-accent);
+  border-radius: var(--m-radius-sm);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--m-transition);
 }
 
 .select-btn:hover {
-  background-color: #3b82f6;
+  background-color: var(--m-accent);
   color: white;
 }
 
 .service-package-card:hover .select-btn {
-  background-color: #3b82f6;
+  background-color: var(--m-accent);
   color: white;
 }
 </style>

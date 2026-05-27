@@ -1,3 +1,11 @@
+/*
+ * 【角色权限判断工具】
+ * 三级权限体系：
+ *   - 顾客(0)：下单、浏览打手大厅、申请成为打手
+ *   - 打手(1)：接单、拒单、申请完成
+ *   - Boss管理员(2)：审核完成、转派订单、退款处理、违规管理、入驻审核
+ * 来源：优先从 Pinia store 读取，回退 localStorage 缓存
+ */
 import { getAuthUser } from '../api/token'
 import { useUserStore } from '../stores/user'
 
